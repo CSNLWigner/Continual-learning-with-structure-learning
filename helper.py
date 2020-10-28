@@ -29,3 +29,11 @@ def model_log_llh(z, r, alpha, sigma_reward):
   prob_per_sample = tfp.distributions.Normal(loc=tf.reduce_sum(tf.multiply(gamma,z),1), scale=sigma_reward).log_prob(r)
   return tf.reduce_sum(prob_per_sample)
 
+def model_llh(z, r, alpha, sigma_reward, method='tf'):
+    gamma = gamma_from_alpha(alpha)
+    if method == 'tf':
+        prob_per_sample = tfp.distributions.Normal(loc=tf.reduce_sum(tf.multiply(gamma,z),1), scale=sigma_reward).prob(r)
+    elif method == 'np':
+        prob_per_sample = tf.exp(-0.5 * 
+                (tf.reduce_sum(tf.multiply(gamma,z),1) - r)**2 / sigma_reward**2) / (2*np.pi*sigma_reward**2)**0.5
+    return tf.reduce_prod(prob_per_sample)
