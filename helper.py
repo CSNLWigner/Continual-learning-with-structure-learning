@@ -2,11 +2,8 @@ import tensorflow as tf
 from tensorflow_probability import distributions as tfd
 import tensorflow_probability as tfp
 import numpy as np
-
-def gamma_from_alpha(alpha):
-    #return np.array([tf.cos(tf.cast(alpha/180*np.pi,tf.float32)), tf.sin(tf.cast(alpha/180*np.pi,tf.float32))])
-    return np.array([np.cos(alpha/180*np.pi), np.sin(alpha/180*np.pi)]).astype(np.float32)
-    
+import matplotlib.pyplot as plt
+        
 def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
     gamma = gamma_from_alpha(alpha)
 
@@ -24,9 +21,34 @@ def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bia
     return {'z':z,'r':r}
 
 
+def plot_data(data, labels=False):
+    plt.scatter(*data['z'].T,c=data['r'])
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.xlim([0,1])
+    plt.ylim([0,1])
+    plt.xlabel('z_1')
+    plt.ylabel('z_2')
+    if labels:
+        labels = ['{0}'.format(i) for i in range(data['z'].shape[0])]
+        for label, x, y in zip(labels, data['z'][:, 0], data['z'][:, 1]):
+            plt.annotate(
+                label,
+                xy=(x, y), xytext=(-20, 20),
+                textcoords='offset points', ha='right', va='bottom',
+                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+
+
+def gamma_from_alpha(alpha):
+    #return np.array([tf.cos(tf.cast(alpha/180*np.pi,tf.float32)), tf.sin(tf.cast(alpha/180*np.pi,tf.float32))])
+    return np.array([np.cos(alpha/180*np.pi), np.sin(alpha/180*np.pi)]).astype(np.float32)
+
+
 def model_llh_by_alpha(z, r, alpha, sigma_reward, method='tf'):
     gamma = gamma_from_alpha(alpha)
     return model_llh(z, r, gamma, sigma_reward, method='tf')
+
 
 def model_llh(z, r, gamma, sigma_reward, method='tf'):
     if method == 'tf':
