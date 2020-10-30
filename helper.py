@@ -62,8 +62,47 @@ def model_llh(z, r, gamma, sigma_reward, method='tf'):
     return joint_prob
 
 
-# log likelihood of dataset for a model with fixed alpha
-def model_log_llh(z, r, alpha, sigma_reward):
+def model_log_llh_by_alpha(z, r, alpha, sigma_reward):
     gamma = gamma_from_alpha(alpha)
-    prob_per_sample = tf.exp(-0.5 * (tf.reduce_sum(tf.multiply(gamma,z),1) - r)**2 / sigma_reward**2)
-    return tf.reduce_sum(prob_per_sample)
+    return model_log_llh(z, r, gamma, sigma_reward, method='tf')
+
+
+def model_log_llh(z, r, gamma, sigma_reward, method='tf'):
+    if method == 'tf':
+        prob_per_sample = tfp.distributions.Normal(loc=tf.reduce_sum(tf.multiply(gamma,z),1), scale=sigma_reward).log_prob(r)
+        joint_prob = tf.reduce_sum(prob_per_sample)
+    return joint_prob
+
+
+def logsumexp(llhs):
+    '''Computes the log of sum of probs in a numerically safe way. Needs list of log probs as input.'''
+    llh_max = np.max(llhs)
+    return np.log(np.sum(np.exp(llhs - llh_max))/len(llhs)) + llh_max
+
+
+def compute_log_mllh(z, r, alpha_samples, sigma_reward):
+    '''Computes mllh by integrating over samples from the prior given as arguments. Can emulate 1d model mllh by only supplying a single sample from gamma.'''
+    log_llhs = np.array([model_log_llh_by_alpha(z, r, alpha=alpha_sample, sigma_reward=sigma_reward) for alpha_sample in alpha_samples])
+    return logsumexp(log_llhs)
+
+
+def compute_log_mllhs(z, r, list_of_list_of_alphas, sigma_reward, verbose=False):
+    '''Computes mllhs for a list of models, given a list of gamma samples for each model (a list of lists)'''
+    if verbose:
+        pbar = tf.keras.utils.Progbar(len(z))
+    mllhs = []
+    for t in range(len(z)):
+        mllhs.append([compute_log_mllh(z[:t+1],r[:t+1],alpha_samples,sigma_reward) for alpha_samples in list_of_list_of_alphas])
+        if verbose:
+            pbar.add(1)
+    return mllhs
+
+
+def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
+    '''Given a list of mllhs, computes first time index where best model is model_id'''
+    ids_of_best_model = np.argmax(np.array(mllhs),1)
+    if len(np.nonzero(ids_of_best_model == 0)[0]) == 0:
+        id_change = never_result
+    else:
+        id_change = np.nonzero(ids_of_best_model == 0)[0][0]
+    return id_change
