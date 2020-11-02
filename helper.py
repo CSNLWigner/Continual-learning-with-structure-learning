@@ -87,7 +87,7 @@ def compute_log_mllh(z, r, alpha_samples, sigma_reward):
 
 
 def compute_log_mllhs(z, r, list_of_list_of_alphas, sigma_reward, verbose=False):
-    '''Computes mllhs for a list of models, given a list of gamma samples for each model (a list of lists)'''
+    '''Computes mllhs for a list of models for a list of data points, given a list of gamma samples for each model (a list of lists)'''
     if verbose:
         pbar = tf.keras.utils.Progbar(len(z))
     mllhs = []
