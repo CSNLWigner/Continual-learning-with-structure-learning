@@ -59,7 +59,7 @@ def model_llh(z, r, gamma, sigma_reward, method='tf'):
                 (tf.reduce_sum(tf.multiply(gamma,z),1) - r)**2 / sigma_reward**2) / (2*np.pi*sigma_reward**2)**0.5
         joint_prob = tf.reduce_prod(prob_per_sample)
     #assert joint_prob != 0.0, 'joint probability too small, use log prob'
-    return joint_prob
+    return joint_prob 
 
 
 def model_log_llh_by_alpha(z, r, alpha, sigma_reward):
@@ -98,11 +98,88 @@ def compute_log_mllhs(z, r, list_of_list_of_alphas, sigma_reward, verbose=False)
     return mllhs
 
 
+def compute_log_mllh_by_gamma(z, r, gamma_samples, sigma_reward):
+    '''Computes mllh by integrating over samples from the prior given as arguments. Can emulate 1d model mllh by only supplying a single sample from gamma.'''
+    log_llhs = np.array([model_log_llh(z, r, gamma=gamma_sample, sigma_reward=sigma_reward) for gamma_sample in gamma_samples])
+    return logsumexp(log_llhs)
+
+
+def compute_log_mllhs_by_gamma(z, r, list_of_list_of_gammas, sigma_reward, verbose=False):
+    '''Computes mllhs for a list of models for a list of data points, given a list of gamma samples for each model (a list of lists)'''
+    if verbose:
+        pbar = tf.keras.utils.Progbar(len(z))
+    mllhs = []
+    for t in range(len(z)):
+        mllhs.append([compute_log_mllh_by_gamma(z[:t+1],r[:t+1],gamma_samples,sigma_reward) for gamma_samples in list_of_list_of_gammas])
+        if verbose:
+            pbar.add(1)
+    return mllhs
+
+
 def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
     '''Given a list of mllhs, computes first time index where best model is model_id'''
     ids_of_best_model = np.argmax(np.array(mllhs),1)
-    if len(np.nonzero(ids_of_best_model == 0)[0]) == 0:
+    if len(np.nonzero(ids_of_best_model == model_id)[0]) == 0:
         id_change = never_result
     else:
-        id_change = np.nonzero(ids_of_best_model == 0)[0][0]
+        id_change = np.nonzero(ids_of_best_model == model_id)[0][0]
     return id_change
+
+def gamma_posterior_analytic(zs, rs, sigma_r, Sigma_0):
+    # this is the calculation of the posterior parameters, mu_T and Sigma_T of the posterior p(\gamma | D) = N(\gamma; mu_T, Sigma_T)
+    # notation as in the 'CL marginal likelihood 2' calculation in onenote
+    # the core derivation comes from the function 'trial_nonorm_posterior_set_transformed'
+    T = np.size(zs,0)
+    detSigma_0 = np.linalg.det(Sigma_0)
+    Sigma_i_star_invs = []
+    Sigma_i_invs = []
+    mu_is = []
+    for t in range(T):
+        z = zs[t]
+        r = rs[t]
+        Sigma_i_star_inv = np.array([[z[0]**2/sigma_r**2, z[0]*z[1]/sigma_r**2],[z[0]*z[1]/sigma_r**2, z[1]**2/sigma_r**2]])
+        Sigma_i_star_invs.append(Sigma_i_star_inv)
+        if t==0:
+            Sigma_i_inv = Sigma_i_star_inv + np.linalg.inv(Sigma_0)
+        else:
+            Sigma_i_inv = Sigma_i_star_inv + Sigma_i_invs[t-1]
+        Sigma_i_invs.append(Sigma_i_inv)
+        Sigma_i = np.linalg.inv(Sigma_i_inv)
+        if t==0:
+            mu_i = Sigma_i.dot(z*r/sigma_r**2)
+        else:
+            mu_i = Sigma_i.dot(z*r/sigma_r**2 + Sigma_i_invs[t-1].dot(mu_is[t-1]) )
+        mu_is.append(mu_i)
+    mu_T = mu_i
+    Sigma_T = Sigma_i
+    return mu_T, Sigma_T
+
+def model_marginal_llh_analytic(zs, rs, sigma_r, Sigma_0):
+    # this is the model marginal likelihood function
+    # it is validated through 'trial_nonorm_posterior_set_transformed'
+    # from that function the only step fowrad is to leave the normal in gamma (the gamma posterior) since gamma is marginalized out
+    T = np.size(zs,0)
+    detSigma_0 = np.linalg.det(Sigma_0)
+    Sigma_i_star_invs = []
+    Sigma_i_invs = []
+    mu_is = []
+    y = 1/(2*np.pi)/np.sqrt(np.linalg.det(Sigma_0))
+    for t in range(T):
+        z = zs[t]
+        r = rs[t]
+        Sigma_i_star_inv = np.array([[z[0]**2/sigma_r**2, z[0]*z[1]/sigma_r**2],[z[0]*z[1]/sigma_r**2, z[1]**2/sigma_r**2]])
+        Sigma_i_star_invs.append(Sigma_i_star_inv)
+        if t==0:
+            Sigma_i_inv = Sigma_i_star_inv + np.linalg.inv(Sigma_0)
+        else:
+            Sigma_i_inv = Sigma_i_star_inv + Sigma_i_invs[t-1]
+        Sigma_i_invs.append(Sigma_i_inv)
+        Sigma_i = np.linalg.inv(Sigma_i_inv)
+        if t==0:
+            mu_i = Sigma_i.dot(z*r/sigma_r**2)
+        else:
+            mu_i = Sigma_i.dot(z*r/sigma_r**2 + Sigma_i_invs[t-1].dot(mu_is[t-1]) )
+        mu_is.append(mu_i)
+        y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
+    y = y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i)
+    return y
