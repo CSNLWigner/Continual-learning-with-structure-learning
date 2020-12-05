@@ -3,7 +3,8 @@ from tensorflow_probability import distributions as tfd
 import tensorflow_probability as tfp
 import numpy as np
 import matplotlib.pyplot as plt
-        
+from scipy.stats import multivariate_normal
+
 def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
     gamma = gamma_from_alpha(alpha)
 
