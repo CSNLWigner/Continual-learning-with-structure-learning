@@ -5,8 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 
-def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
-    gamma = gamma_from_alpha(alpha)
+def generate_data_from_gamma(N=100, gamma=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
 
     if z_prior_type == 'normal':
         z_prior = tfd.MultivariateNormalDiag(loc=[0,0], scale_diag=[sigma_z_prior,sigma_z_prior]);
@@ -16,10 +15,16 @@ def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bia
     z = np.array(z_prior.sample(N))
 
     r_noise = tfd.Normal(0, sigma_reward).sample(N)
-    r_mean = tf.reduce_sum(tf.multiply(gamma,z),1) + r_bias
+    r_mean = tf.cast(tf.reduce_sum(tf.multiply(gamma,z),1),dtype=tf.float32) + r_bias
     r = r_mean + r_noise
 
     return {'z':z,'r':r}
+
+        
+def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
+    gamma = gamma_from_alpha(alpha)
+
+    return generate_data_from_gamma(N=N, gamma=gamma, z_prior_type=z_prior_type, sigma_z_prior=sigma_z_prior, r_bias=r_bias, sigma_reward=sigma_reward, sigma_bias=sigma_bias)
 
 
 def plot_data(data, labels=False):
@@ -125,6 +130,20 @@ def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
     else:
         id_change = np.nonzero(ids_of_best_model == model_id)[0][0]
     return id_change
+
+def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
+    '''Given a list of mllhs, computes first time index where best model is model_id'''
+    ids_of_best_model = np.argmax(np.array(mllhs),1)
+    if len(np.nonzero(ids_of_best_model == model_id)[0]) == 0:
+        id_change = never_result
+    else:
+        a = ids_of_best_model == model_id
+        if sum(a) == len(a):
+            id_change = 0
+        else:
+            id_change = len(a) - np.argmin(np.flip(a))
+    return id_change
+
 
 def gamma_posterior_analytic(zs, rs, sigma_r, Sigma_0):
     # this is the calculation of the posterior parameters, mu_T and Sigma_T of the posterior p(\gamma | D) = N(\gamma; mu_T, Sigma_T)
