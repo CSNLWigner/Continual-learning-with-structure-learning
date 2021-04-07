@@ -175,7 +175,7 @@ def gamma_posterior_analytic(zs, rs, sigma_r, Sigma_0):
     return mu_T, Sigma_T
 
 def model_marginal_llh_analytic(zs, rs, sigma_r, Sigma_0):
-    # this is the model marginal likelihood function
+    # this is the model marginal likelihood function (but for which model?)
     # it is validated through 'trial_nonorm_posterior_set_transformed'
     # from that function the only step fowrad is to leave the normal in gamma (the gamma posterior) since gamma is marginalized out
     T = np.size(zs,0)
