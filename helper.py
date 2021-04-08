@@ -5,12 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 
-def generate_data_from_gamma(N=100, gamma=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
+def generate_data_from_gamma(N=100, gamma=np.array([0,1]), z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
 
     if z_prior_type == 'normal':
         z_prior = tfd.MultivariateNormalDiag(loc=[0,0], scale_diag=[sigma_z_prior,sigma_z_prior]);
     elif z_prior_type == 'uniform':
-        z_prior = tfd.Uniform([0,0],[sigma_z_prior,sigma_z_prior])
+        z_prior = tfd.Uniform([-sigma_z_prior,-sigma_z_prior],[sigma_z_prior,sigma_z_prior])
 
     z = np.array(z_prior.sample(N))
 
@@ -31,8 +31,8 @@ def plot_data(data, labels=False):
     plt.scatter(*data['z'].T,c=data['r'])
     plt.gca().set_aspect('equal')
     plt.colorbar()
-    plt.xlim([0,1])
-    plt.ylim([0,1])
+    plt.xlim([-1,1])
+    plt.ylim([-1,1])
     plt.xlabel('z_1')
     plt.ylabel('z_2')
     if labels:
