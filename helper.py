@@ -5,6 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 
+def riffle(list1,list2):
+    return np.array(list(zip(list1,list2))).flatten()
+
 def generate_data_from_gamma(N=100, gamma=np.array([0,1]), z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
 
     if z_prior_type == 'normal':
