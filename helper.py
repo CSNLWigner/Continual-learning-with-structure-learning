@@ -30,14 +30,15 @@ def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bia
     return generate_data_from_gamma(N=N, gamma=gamma, z_prior_type=z_prior_type, sigma_z_prior=sigma_z_prior, r_bias=r_bias, sigma_reward=sigma_reward, sigma_bias=sigma_bias)
 
 
-def plot_data(data, labels=False):
-    plt.scatter(*data['z'].T,c=data['r'])
+def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, marker='o'):
+    plt.scatter(*data['z'].T,c=data['r'], marker=marker, vmin=-climit, vmax=climit)
     plt.gca().set_aspect('equal')
-    plt.colorbar()
-    plt.xlim([-1,1])
-    plt.ylim([-1,1])
-    plt.xlabel('z_1')
-    plt.ylabel('z_2')
+    plt.xlim([-limit,limit])
+    plt.ylim([-limit,limit])
+    if axislabels:
+        plt.xlabel('z_1')
+        plt.ylabel('z_2')
+        plt.colorbar()
     if labels:
         labels = ['{0}'.format(i) for i in range(data['z'].shape[0])]
         for label, x, y in zip(labels, data['z'][:, 0], data['z'][:, 1]):
