@@ -4,17 +4,21 @@ import tensorflow_probability as tfp
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
+from itertools import zip_longest
 
 def riffle(list1,list2):
-    return np.array(list(zip(list1,list2))).flatten()
+    riffled = np.array(list(zip_longest(list1,list2))).flatten()
+    riffled = [x for x in riffled if x is not None]
+    return np.array(riffled)
 
 def generate_data_from_gamma(N=100, gamma=np.array([0,1]), z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
-
+    '''Generate data from 1 x 1D model'''
     if z_prior_type == 'normal':
         z_prior = tfd.MultivariateNormalDiag(loc=[0,0], scale_diag=[sigma_z_prior,sigma_z_prior]);
     elif z_prior_type == 'uniform':
         z_prior = tfd.Uniform([-sigma_z_prior,-sigma_z_prior],[sigma_z_prior,sigma_z_prior])
-
+    elif z_prior_type == 'informative':
+        z_prior = tfd.MultivariateNormalDiag(loc=[-1,1], scale_diag=[.3,.3]);
     z = np.array(z_prior.sample(N))
 
     r_noise = tfd.Normal(0, sigma_reward).sample(N)
@@ -25,9 +29,11 @@ def generate_data_from_gamma(N=100, gamma=np.array([0,1]), z_prior_type='uniform
 
         
 def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0):
+    '''Generate data from 1 x 1D model by alpha'''
     gamma = gamma_from_alpha(alpha)
-
-    return generate_data_from_gamma(N=N, gamma=gamma, z_prior_type=z_prior_type, sigma_z_prior=sigma_z_prior, r_bias=r_bias, sigma_reward=sigma_reward, sigma_bias=sigma_bias)
+    return generate_data_from_gamma(N=N, gamma=gamma, z_prior_type=z_prior_type,
+                                    sigma_z_prior=sigma_z_prior, r_bias=r_bias,
+                                    sigma_reward=sigma_reward, sigma_bias=sigma_bias)
 
 
 def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, marker='o'):
