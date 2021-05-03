@@ -1,3 +1,5 @@
+**Files which this readme is about:**
+
 mmllhs_x.pickle, mmllhs_y.pickle, mmllhs_1x2D.pickle, mmllhs_2x1D.pickle, mmllhs_2x2D.pickle
 
 The files contain numpy.ndarrays of shape (7, 15, 50). 
@@ -12,11 +14,11 @@ Ts = [6, 6, 10, 25, 35, 42, 50]  # number of datapoints taken into account depen
 
 
 
+**Workflow in a nutshell:**
 
 1x1D vs 2x2D: 15 datasets (Ddiag_1, Ddiag_2, ..., Ddiag_15) consisting of 50 paired diagonal (+- 45 degree) data points were generated in advance.
 
 1x2D vs 2x1D: 15 datasets (Dcard_1, Dcard_2, ..., Dcard_15) consisting of 50 paired cardinal (0/90 degree) data points were generated in advance. 
-
 
 
 The arrays mmllhs_x, mmllhs_y, etc were initialized as numpy arrays containing zeros. 15 simulations were performed for each sigma. 
