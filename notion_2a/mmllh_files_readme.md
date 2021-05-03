@@ -1,4 +1,5 @@
-mmllhs_x.pickle, mmllhs_y.pickle, mmllhs_1x2D.pickle, mmllhs_2x1D.pickle, mmllhs_2x2D.pickle\\
+mmllhs_x.pickle, mmllhs_y.pickle, mmllhs_1x2D.pickle, mmllhs_2x1D.pickle, mmllhs_2x2D.pickle
+
 The files contain numpy.ndarrays of shape (7, 15, 50). 
 
 Parameters of the exploration:
