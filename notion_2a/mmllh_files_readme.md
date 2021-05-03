@@ -2,7 +2,7 @@ mmllhs_x.pickle, mmllhs_y.pickle, mmllhs_1x2D.pickle, mmllhs_2x1D.pickle, mmllhs
 
 The files contain numpy.ndarrays of shape (7, 15, 50). 
 
-Parameters of the exploration:
+**Parameters of the exploration:**
 
 sigmas = [.1, .2, .3, .4, .5, .6, .7]
 
