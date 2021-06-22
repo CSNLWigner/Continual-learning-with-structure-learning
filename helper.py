@@ -16,6 +16,7 @@ def riffle(list1,list2):
     riffled = [x for x in riffled if x is not None]
     return np.array(riffled)
 
+
 def gamma_from_alpha(alpha):
     '''
     Convert the alpha parameter of a decision boundary to a gamma parameter.
@@ -32,6 +33,7 @@ def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
     else:
         id_change = np.nonzero(ids_of_best_model == model_id)[0][0]
     return id_change
+    
 
 def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
     '''Given a list of mllhs, computes first time index where best model is model_id'''
@@ -118,7 +120,9 @@ def generate_data_from_gamma(N=100, gamma=np.array([0,1]), z_prior_type='uniform
     
     c = np.ones(N) * context_value
 
-    return {'z':z, 'r':np.array(r), 'c':c}
+    b = c
+
+    return {'z':z, 'r':np.array(r), 'c':c, 'b':b}
 
         
 def generate_data(N=100, alpha=0, z_prior_type='uniform', sigma_z_prior=1, r_bias=0, sigma_reward=0.1, sigma_bias=0, context_value=0):
@@ -268,7 +272,7 @@ def compute_log_mllhs_by_gamma(z, r, list_of_list_of_gammas, sigma_reward, verbo
     return mllhs
 
 
-########################################### Functions associated with 2x2D model ###########################################
+########################################### Legacy code ###########################################
 
 from itertools import chain, combinations
 def powerset(iterable):
