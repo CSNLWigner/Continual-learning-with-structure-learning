@@ -13,7 +13,7 @@ def powerset(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
-def mllh_analytic_1x1D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]])):
+def mllh_analytic_1x1D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), model = 'x'):
     '''
     Computes mllh for 1x1D model.
     '''
@@ -85,6 +85,42 @@ def mllh_analytic_1x2D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]])):
         return 1
 
 
+def mllh_analytic_2x1D(data, sigma_r, Sigma_0_1D = 1., verbose = True):
+    '''
+    Analytic computation of marginal likelihood of 2x2D model
+    it is validated through 'trial_nonorm_posterior_set_transformed'
+    from that function the only step forward is to leave the normal in gamma (the gamma posterior) since gamma is marginalized out
+    '''
+    z = data['z']
+    r = data['r']
+    T = z.shape[0]
+  
+    indices = np.arange(T)
+    index_subsets = list(powerset(indices))
+
+    mmllh_accumulator = 0.
+    if verbose:
+        pbar = tf.keras.utils.Progbar(len(index_subsets))
+    for index_subset in index_subsets:
+        zx = z[list(index_subset)]
+        rx = r[list(index_subset)]
+        datax = {'z':zx, 'r':rx}
+
+        complementer_subset = [item for item in indices if item not in index_subset]
+
+        zy = z[complementer_subset]
+        ry = r[complementer_subset]
+        datay = {'z':zy, 'r':ry}
+
+        mmllh_accumulator += mllh_analytic_1x1D(datax, sigma_r, Sigma_0 = Sigma_0_1D, model = 'x') \
+        * mllh_analytic_1x1D(datay, sigma_r, Sigma_0 = Sigma_0_1D, model = 'y')
+    
+        if verbose:
+            pbar.add(1)
+    mmllh_accumulator /= 2**T
+    return mmllh_accumulator
+
+
 def mllh_analytic_2x2D(data, sigma_r, Sigma_0_2D = np.array([[1., 0.], [0., 1.]]), verbose = True):
     '''
     Analytic computation of marginal likelihood of 2x2D model
@@ -104,14 +140,16 @@ def mllh_analytic_2x2D(data, sigma_r, Sigma_0_2D = np.array([[1., 0.], [0., 1.]]
     for index_subset in index_subsets:
         z1 = z[list(index_subset)]
         r1 = r[list(index_subset)]
+        data1 = {'z':z1, 'r':r1}
         
         complementer_subset = [item for item in indices if item not in index_subset]
         
         z2 = z[complementer_subset]
         r2 = r[complementer_subset]
+        data2 = {'z':z2, 'r':r2}
         
-        mmllh_accumulator += mllh_analytic_1x2D(z1, r1, sigma_r, Sigma_0 = Sigma_0_2D) \
-        * mllh_analytic_1x2D(z2, r2, sigma_r, Sigma_0 = Sigma_0_2D)
+        mmllh_accumulator += mllh_analytic_1x2D(data1, sigma_r, Sigma_0 = Sigma_0_2D) \
+        * mllh_analytic_1x2D(data2, sigma_r, Sigma_0 = Sigma_0_2D)
         
         if verbose:
             pbar.add(1)
