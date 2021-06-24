@@ -157,9 +157,11 @@ def mllh_analytic_2x2D(data, sigma_r, Sigma_0_2D = np.array([[1., 0.], [0., 1.]]
     mmllh_accumulator /= 2**T
     return mmllh_accumulator
 
-def mllh_analytic_2x2D_shared(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]])):
+
+def mllh_analytic_2x2D_shared(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), return_posterior=False):
     '''
     Computes mllh for 2x2D-shared decision boundary model.
+    https://www.notion.so/2x2D-shared-Shared-decision-boundary-model-888ee041f7954cf0a2b98fa7db774ebc
     '''
     zs = data['z']
     rs = data['r']
@@ -191,6 +193,9 @@ def mllh_analytic_2x2D_shared(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 
             mu_is.append(mu_i)
             y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
         y = y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i)
-        return y
+        if return_posterior:
+            return {'mllh':y, 'mu_is':mu_is, 'Sigma_i_invs':Sigma_i_invs}
+        else:
+            return y
     else:
         return 1
