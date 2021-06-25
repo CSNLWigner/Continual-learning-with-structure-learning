@@ -229,7 +229,7 @@ def mllh_analytic_2x1D_observed_context(data, sigma_r, Sigma_0_1D = 1., verbose 
     return mmllh_accumulator
 
 
-    def mllh_analytic_2x2D_observed_context(data, sigma_r, Sigma_0_1D = 1., verbose = True):
+def mllh_analytic_2x2D_observed_context(data, sigma_r, Sigma_0_1D = 1., verbose = True):
     '''
     Analytic computation of marginal likelihood of 2x2D model where it is assumed that background corresponds directly to context.
     '''
