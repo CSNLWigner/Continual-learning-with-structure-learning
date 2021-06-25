@@ -213,19 +213,35 @@ def mllh_analytic_2x2D_shared(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 
 
 def mllh_analytic_2x1D_observed_context(data, sigma_r, Sigma_0_1D = 1., verbose = True):
     '''
-    Analytic computation of marginal likelihood of 2x2D model
-    it is validated through 'trial_nonorm_posterior_set_transformed'
-    from that function the only step forward is to leave the normal in gamma (the gamma posterior) since gamma is marginalized out
+    Analytic computation of marginal likelihood of 2x1D model where it is assumed that background corresponds directly to context.
     '''
     z = data['z']
     r = data['r']
     b = data['b']
     T = z.shape[0]
 
-    datax = helper.reorder_data(data,np.where(data['b'] == 0)[0])
+    datax = helper.reorder_data(data,np.where(data['b'] == 0)[0]) #check if 0 corresponds to the right task!
     datay = helper.reorder_data(data,np.where(data['b'] == 1)[0])
 
     mmllh_accumulator = mllh_analytic_1x1D(datax, sigma_r, Sigma_0 = Sigma_0_1D, model = 'x') \
         * mllh_analytic_1x1D(datay, sigma_r, Sigma_0 = Sigma_0_1D, model = 'y')
+        
+    return mmllh_accumulator
+
+
+    def mllh_analytic_2x2D_observed_context(data, sigma_r, Sigma_0_1D = 1., verbose = True):
+    '''
+    Analytic computation of marginal likelihood of 2x2D model where it is assumed that background corresponds directly to context.
+    '''
+    z = data['z']
+    r = data['r']
+    b = data['b']
+    T = z.shape[0]
+
+    datax = helper.reorder_data(data,np.where(data['b'] == 0)[0]) #check if 0 corresponds to the right task!
+    datay = helper.reorder_data(data,np.where(data['b'] == 1)[0])
+
+    mmllh_accumulator = mllh_analytic_1x2D(datax, sigma_r, Sigma_0 = Sigma_0_1D) \
+        * mllh_analytic_1x2D(datay, sigma_r, Sigma_0 = Sigma_0_1D)
         
     return mmllh_accumulator
