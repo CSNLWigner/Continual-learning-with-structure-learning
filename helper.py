@@ -345,7 +345,6 @@ def model_marginal_llh_analytic_new(zs, rs, sigma_r, Sigma_0 = np.array([[1., 0.
                 mu_is.append(mu_i)
                 y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
             y = y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i)
-
         return y
     else:
         return 1.

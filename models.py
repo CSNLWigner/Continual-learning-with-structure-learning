@@ -29,29 +29,36 @@ def mllh_analytic_1x1D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), 
     y = 1/(np.sqrt(2*np.pi))/Sigma_0
     zs = data['z']
     rs = data['r']
-    for t in range(T):
-        z = zs[t]
-        r = rs[t]
-    
-        Sigma_i_star_inv = z[integral_dim]**2/sigma_r**2
-        Sigma_i_star_invs.append(Sigma_i_star_inv)
-        if t==0:
+    if zs.size != 0:
+        T = zs.shape[0]
+        for t in range(T):
+            z = zs[t]
+            r = rs[t]
+        
+            Sigma_i_star_inv = z[integral_dim]**2/sigma_r**2
+            Sigma_i_star_invs.append(Sigma_i_star_inv)
+            if t==0:
                 Sigma_i_inv = Sigma_i_star_inv + 1/Sigma_0**2
-        else:
+            else:
                 Sigma_i_inv = Sigma_i_star_inv + Sigma_i_invs[t-1]
-        Sigma_i_invs.append(Sigma_i_inv)
-        Sigma_i = 1/Sigma_i_inv
-        if t==0:
+            Sigma_i_invs.append(Sigma_i_inv)
+            Sigma_i = 1/Sigma_i_inv
+            if t==0:
                 mu_i = Sigma_i * z[integral_dim]*r/sigma_r**2
-        else:
+            else:
                 mu_i = Sigma_i * (z[integral_dim]*r/sigma_r**2 + Sigma_i_invs[t-1]*mu_is[t-1])
-        mu_is.append(mu_i)
-        y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
-    y = y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i)
-    return y
+            mu_is.append(mu_i)
+            y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
+        y = y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i)
+        return y
+    else:
+        return 1. # is this ok?
 
 
-def mllh_analytic_1x2D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]])):
+def mllh_analytic_1x2D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), return_posterior=False):
+    '''
+    Analytic computation of marginal likelihood of 1x2D model.
+    '''
     zs = data['z']
     rs = data['r']
     if zs.size != 0:
@@ -80,7 +87,10 @@ def mllh_analytic_1x2D(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]])):
             mu_is.append(mu_i)
             y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
         y = y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i)
-        return y
+        if return_posterior:
+            return {'mllh':y, 'mu_is':mu_is, 'Sigma_i_invs':Sigma_i_invs}
+        else:
+            return y
     else:
         return 1
 
@@ -113,7 +123,7 @@ def mllh_analytic_2x1D(data, sigma_r, Sigma_0_1D = 1., verbose = True):
         datay = {'z':zy, 'r':ry}
 
         mmllh_accumulator += mllh_analytic_1x1D(datax, sigma_r, Sigma_0 = Sigma_0_1D, model = 'x') \
-        * mllh_analytic_1x1D(datay, sigma_r, Sigma_0 = Sigma_0_1D, model = 'y')
+            * mllh_analytic_1x1D(datay, sigma_r, Sigma_0 = Sigma_0_1D, model = 'y')
     
         if verbose:
             pbar.add(1)
