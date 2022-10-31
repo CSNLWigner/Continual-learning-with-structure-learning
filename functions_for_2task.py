@@ -1,4 +1,4 @@
-import helper
+import helper_mate
 import numpy as np
 import tensorflow as tf
 from copy import deepcopy
@@ -569,7 +569,7 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
   conts = [cx, cy]
   if '' in conts:
     conts.remove('')
-  return (mmllh_x, mmllh_y), (mu_x, mu_y), (sigma_x, sigma_y), (T1, T2), tuple(conts)
+  return [mmllh_x, mmllh_y], [mu_x, mu_y], [sigma_x, sigma_y], [T1, T2], conts
 
 def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   z = data['z']
@@ -879,7 +879,7 @@ def exclude_context(data, context):
   z = data['z']
   r = np.array(data['r'])
   idxs = np.where(c != context)[0]
-  if idxs:
+  if len(idxs) > 0:
     return {'z': z[idxs], 'r': r[idxs], 'c': list(c[idxs])}
   else:
     return None
@@ -900,43 +900,46 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mmllh_2x2D_with_background(data, sigma_r, Sigma_0)
     return mmllhs, posterior, new_contexts
   elif len(prev_contexts) == 1:  # T1 or T2 is zero in this case
+    if len(mmllhs_prev) == 2:
+      assert 1 in mmllhs_prev, "in case of 1 prev context, one of the prev mmllhs should be 1."
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
-    print(mus_prev, sigmas_prev, Ts_prev)
-    
     sorted_zip_accord_to_T = sorted(zip(mus_prev, sigmas_prev, Ts_prev), key = lambda x: x[-1])
-    print(list(zip(mus_prev, sigmas_prev, Ts_prev)))
-    return 0
     mus_prev, sigmas_prev, Ts_prev = list(zip(*sorted_zip_accord_to_T))
-    print(mus_prev, sigmas_prev, Ts_prev)
-    return 0
     # 0 is the first element in Ts_prev from now on
-
+    mmllhs_prev_copy = list(mmllhs_prev).copy()  # maybe one of the elements in mmllhs_prev_copy is 1., but giving a one-element list is also acceptable
+    if 1 in mmllhs_prev_copy:
+      mmllhs_prev_copy.remove(1)
+    mmllh_prev = mmllhs_prev_copy[0]
     prev_context = prev_contexts[0]
     data_with_prev_cont = filter_based_on_context(data, prev_context)
     if data_with_prev_cont is not None:
       T1 = Ts_prev[-1] + len(data_with_prev_cont['z'])
-      post_prev = (mus_prev[1], sigmas_prev[1], Ts_prev[1])
-      mmllh_prev = sorted(mmllhs_prev)[-1]
+      post_prev = (mus_prev[1], sigmas_prev[1])
       mmllh_1_new, post1, _ = calc_mmllh_1task(data_with_prev_cont, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllh_prev)
       mu_1_new, sigma_1_new = post1
     else:
-      mmllh_1_new, mu_1_new, sigma_1_new = (mus_prev[1], sigmas_prev[1], Ts_prev[1])
+      mu_1_new, sigma_1_new, T1 = (mus_prev[1], sigmas_prev[1], Ts_prev[1])
       T1 = Ts_prev[-1]
+      mmllh_1_new = mmllh_prev
 
     other_part_of_data = exclude_context(data, prev_context)
     if other_part_of_data is not None:
       T2 = len(other_part_of_data['z'])
-      new_context = retrieve_unique_contexts(other_part_of_data)[0]
-      mmllh_2_new, post2 = calc_mmllh_1task(other_part_of_data, sigma_r, Sigma_0, model = "1x2D", evaluation = "full")
+      new_context = retrieve_unique_contexts(other_part_of_data)[0]  # function returns a list of unique contexts
+      mmllh_2_new, post2 = calc_mmllh_1task(other_part_of_data, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "full")
       mu_2_new, sigma_2_new = post2
     else:
-      mmllh_2_new, mu_2_new, sigma_2_new = (mus_prev[0], sigmas_prev[0], Ts_prev[0])
+      mu_2_new, sigma_2_new = (mus_prev[0], sigmas_prev[0])
       T2 = 0
+      mmllh_2_new = 1.
       new_context = ''
-
-    return (mmllh_1_new, mmllh_2_new), (mu_1_new, mu_2_new), (sigma_1_new, sigma_2_new), (T1, T2), tuple([prev_context, new_context].remove(''))
+    post_ret = [(mu_1_new, mu_2_new), (sigma_1_new, sigma_2_new), (T1, T2)]
+    cont_list = [prev_context, new_context]
+    if '' in cont_list:
+      cont_list.remove('')
+    return [mmllh_1_new, mmllh_2_new], post_ret, cont_list
   
   elif len(prev_contexts) == 2:
     mus_prev,\
@@ -961,8 +964,8 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
         mus.append(mus_prev[i])
         sigmas.append(sigmas_prev[i])
         Ts.append(Ts_prev[i])
-    post_ret = [tuple(mus), tuple(sigmas), tuple(Ts)]
-    return tuple(mmllhs), post_ret, tuple(prev_contexts)
+    post_ret = [mus, sigmas, Ts]
+    return mmllhs, post_ret, prev_contexts
       
   
   
@@ -971,6 +974,7 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
   
   
 
+  
       
   
   
