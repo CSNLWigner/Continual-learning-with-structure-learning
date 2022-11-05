@@ -1195,7 +1195,8 @@ def generate_paired_card_data(num_pairs):
 def extract_some_data_points(all_data, start, how_many):
   z = all_data['z'][start:start + how_many]
   r = np.array(all_data['r'][start:start + how_many])
-  data = {'z': z, 'r': r}
+  c = all_data['c'][start:start + how_many]
+  data = {'z': z, 'r': r, 'c': c}
   return data
 
 def dream_gammas_from_xdata(data, sigma_r, Sigma_0 = 1.):
@@ -1219,7 +1220,7 @@ def dream_gammas_from_2D_data(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 
   return gamma
 
 
-def generate_data_from_gammas(gammas, T, Sigma_0 = 1., infness = 'non-inf', z_random = True, z = None):
+def generate_data_from_gammas(gammas, T, contexts, Sigma_0 = 1., infness = 'non-inf', z_random = True, z = None):
   if infness == 'non-inf':
     if z_random:
       z = np.array(tfd.MultivariateNormalDiag(loc = [0, 0], scale_diag = [Sigma_0, Sigma_0]).sample(T))
@@ -1230,7 +1231,7 @@ def generate_data_from_gammas(gammas, T, Sigma_0 = 1., infness = 'non-inf', z_ra
   r_noise = tfd.Normal(0, .001).sample(T)
   r_mean = tf.cast(tf.reduce_sum(tf.multiply(gammas,z),1), 'float32')
   r = r_mean + r_noise
-  data = {'z': z, 'r': r}
+  data = {'z': z, 'r': r, 'c': contexts}
   return data
 
 def generate_informative_y_data(Ty, informativeness):
