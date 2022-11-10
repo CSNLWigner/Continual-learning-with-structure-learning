@@ -1245,3 +1245,124 @@ def generate_informative_y_data(Ty, informativeness):
   datay = {'z':z,'r':r}
  
   return datay
+
+
+def dream_data_from_posterior(model, T = None, mu = None, Sigma = None, x_indices = None,
+                                mus = None, Sigmas = None, normalized_weights = None, data_point_counter_list = None, infness = 'non-inf'):
+  '''
+  1 tasknal mu es Sigma kell, 2 tasknal mus, Sigmas, meg a tobbi
+  '''
+  if model == 'x':
+    post = tfd.Normal(loc = mu, scale = Sigma)
+    gamma = np.array(post.sample(T))
+    gamma_out = np.zeros((gamma.shape[0], 2))
+    gamma_out[:, 1] = gamma
+    data_dream = helper.generate_data_from_gammas(gamma_out, T, ['90'] * len(gamma_out))
+    return data_dream, gamma_out
+  elif model == 'y':
+    post = tfd.Normal(loc = mu, scale = Sigma)
+    gamma = np.array(post.sample(T))
+    gamma_out = np.zeros((gamma.shape[0], 2))
+    gamma_out[:, 0] = gamma
+    data_dream = helper.generate_data_from_gammas(gamma_out, T, ['0'] * len(gamma_out))
+    return data_dream, gamma_out
+  elif model == '1x2D':
+    post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
+    gamma_out = np.array(post.sample(T))
+    data_dream = helper.generate_data_from_gammas(gamma_out, T)
+    return data_dream, gamma_out
+  elif model == '2x1D':
+    bernoulli = tfd.Categorical(probs = normalized_weights)
+    chosen_particle_idx = bernoulli.sample(1)
+    Tx = data_point_counter_list[int(chosen_particle_idx)][0]
+    Ty = data_point_counter_list[int(chosen_particle_idx)][1]
+
+    #kulon x-re
+    components_x = []
+    for i in range(len(normalized_weights)):
+      components_x.append(tfd.Normal(loc = np.float64(mus[i][0]), scale=np.float64(Sigmas[i][0])))
+    post_x = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_x)
+    gamma_ = np.array(post_x.sample(Tx))
+    gammax = np.zeros((gamma_.shape[0], 2))
+    gammax[:, 1] = gamma_
+
+    #kulon y-ra
+    components_y = []
+    for i in range(len(normalized_weights)):
+      components_y.append(tfd.Normal(loc = np.float64(mus[i][1]), scale=np.float64(Sigmas[i][1])))
+    post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
+    gamma_ = np.array(post_y.sample(Ty))
+    gammay = np.zeros((gamma_.shape[0], 2))
+    gammay[:, 0] = gamma_
+
+    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax), infness = infness)
+    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay), infness = infness)
+    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    return data_dream, gammax, gammay
+  elif model == '2x2D':
+    bernoulli = tfd.Categorical(probs = normalized_weights)
+    chosen_particle_idx = bernoulli.sample(1)
+    Tx = data_point_counter_list[int(chosen_particle_idx)][0]
+    Ty = data_point_counter_list[int(chosen_particle_idx)][1]
+
+    #kulon x-re
+    components_x = []
+    for i in range(len(normalized_weights)):
+      components_x.append(tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[i][0]), covariance_matrix=np.float64(Sigmas[i][0])))
+    post_x = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_x)
+    
+    gammax = np.array(post_x.sample(Tx))
+    
+
+    #kulon y-ra
+    components_y = []
+    for i in range(len(normalized_weights)):
+      components_y.append(tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[i][1]), covariance_matrix=np.float64(Sigmas[i][1])))
+    post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
+      
+    gammay = np.array(post_y.sample(Ty))
+    
+    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, infness = infness)
+    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, infness = infness)
+    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    return data_dream, gammax, gammay
+  elif model == '2x1D_bg':
+    #ilyenkor mus, Sigmas, data_point_counter_list: mus = [mu_x, mu_y]; Sigmas = [Sigma_x, Sigma_y]; data_point_counter_list = [Tx, Ty]
+
+    Tx = data_point_counter_list[0]
+    Ty = data_point_counter_list[1]
+    #indices = list(np.arange(Tx + Ty))
+    #y_indices = [item for item in indices if item not in x_indices]
+    
+    # almodas x-bol
+    post_x = tfd.Normal(loc = np.float64(mus[0]), scale=np.float64(Sigmas[0]))
+      
+    gamma_ = np.array(post_x.sample(Tx))
+    gammax = np.zeros((gamma_.shape[0], 2))
+    gammax[:, 1] = gamma_
+
+    # almodas y-bol
+    post_y = tfd.Normal(loc = np.float64(mus[1]), scale=np.float64(Sigmas[1]))
+     
+    gamma_ = np.array(post_y.sample(Ty))
+    gammay = np.zeros((gamma_.shape[0], 2))
+    gammay[:, 0] = gamma_
+
+    # shuffling
+    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    zx = data_dream_x['z']
+    rx = data_dream_x['r']
+    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, ['0'] * len(gammax))
+    zy = data_dream_y['z']
+    ry = data_dream_y['r']
+    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    '''
+    z = data_dream['z']
+    r = data_dream['r']
+    z[x_indices] = zx
+    r[x_indices] = rx
+    z[y_indices] = zy
+    r[y_indices] = ry
+    data_dream = {'z':z, 'r':r}
+    '''   
+    return data_dream
