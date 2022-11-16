@@ -1110,91 +1110,7 @@ def mscatter(x,y,ax=None, m=None, **kw):
         sc.set_paths(paths)
     return sc
 
-def plot_exp(mmllhs, T, data, sigma_r, data_labels, model_labels, who_is_to_be_win, where_is_the_winner, sim):
-  '''
-  mmllhs.shape = (len(model_labels), len(sigmas), num_sim, max(Ts))
-  '''  
-  fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-  
-  cmap = mpl.cm.viridis
-  norm = mpl.colors.Normalize(vmin=np.min(data['r']), vmax=np.max(data['r']))
-  fig.colorbar(mpl.cm.ScalarMappable(norm = norm, cmap=cmap),
-              ax=ax1, orientation='vertical', label='reward')
 
-
-  m = []
-  #unique_labels = list(set(labels)) # ketfele van
-  if who_is_to_be_win == '2x2D':
-    for i in range(T):
-      if '45' == data_labels[i]:
-        m.append('s')
-      else:
-        m.append('o')
-  else:
-    for i in range(T):
-      if 'x' == data_labels[i]:
-        m.append('s')
-      else:
-        m.append('o')
-  
-  mscatter(data['z'][:, 0], data['z'][:, 1], ax=ax1, m=m, c=data['r'], s=130)
-  ax1.set_xlabel('z_1')
-  ax1.set_ylabel('z_2')
-  ax1.grid()
-  if who_is_to_be_win == '2x2D':
-    ax1.set_title('square: 45 degree\n circle: -45 degree')
-  else:
-    ax1.set_title('square: x aligned\n circle: y aligned')
-  
-  ax1.annotate('(0, 0)', xy = (0, 0),xytext=(-.1, .1), ha='right', va='bottom', arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
-  ax1.axvline(x = 0, c = 'black')
-  ax1.axhline(y = 0, c = 'black')
-
-  colors = ['black', 'yellow', 'green', 'blue', 'red', 'orange'] # ez az ossz szinismeretem, ennel tobb model nincs most
-  colors = colors[:len(model_labels)]
-  for i, model_label in enumerate(model_labels):
-    ax2.plot(range(1, T + 1), mmllhs[i, :], '.-', c=colors[i], label = model_label)
-
-  a = np.zeros((T, len(model_labels)))
-  a[:, 0] = mmllhs[where_is_the_winner, :]
-  a[:, 1:] = mmllhs[np.arange(len(model_labels)) != where_is_the_winner, :].T
-  
-  if who_is_to_be_win == '2x2D':
-    fig.suptitle(
-        'paired diagonal data\nsigma_reward: %f\ntime of change to the real model: %d'%(sigma_r,
-                                                helper.index_of_model_change_modified(a) + 1))
-  else:
-    fig.suptitle(
-        'paired cardinal data\nsigma_reward: %f\ntime of change to the real model: %d'%(sigma_r,
-                                                helper.index_of_model_change_modified(a) + 1))
-  ax2.legend()
-  ax2.set_yscale('log')
-  ax2.set_xlabel('Number of data points')
-  ax2.set_ylabel('mmLLH')
-  if who_is_to_be_win == '2x2D':
-    plt.savefig('two_task_model_switch_diag_data_sigma_%f_sim_%d.pdf'%(sigma_r, sim))
-  else:
-    plt.savefig('two_task_model_switch_card_data_sigma_%f_sim_%d.pdf'%(sigma_r, sim))
-
-def generate_paired_diag_data(num_pairs):
-  data = helper.generate_data(N = 1, alpha = 45, sigma_reward = .001)
-  data = concatenate_data(data, helper.generate_data(N = 1, alpha = -45, sigma_reward = .001)) 
-  for i in range(num_pairs - 1):
-    data1 = helper.generate_data(N = 1, alpha = 45, sigma_reward = .001)
-    data2 = helper.generate_data(N = 1, alpha = -45, sigma_reward = .001)
-    data3 = concatenate_data(data1, data2)
-    data = concatenate_data(data, data3)
-  return data
-
-def generate_paired_card_data(num_pairs):
-  data = helper.generate_data(N = 1, alpha = 90, sigma_reward = .001)
-  data = concatenate_data(data, helper.generate_data(N = 1, alpha = 0, sigma_reward = .001))
-  for i in range(num_pairs - 1):
-    data1 = helper.generate_data(N = 1, alpha = 90, sigma_reward = .001)
-    data2 = helper.generate_data(N = 1, alpha = 0, sigma_reward = .001)
-    data3 = concatenate_data(data1, data2)
-    data = concatenate_data(data, data3)
-  return data
 
 def extract_some_data_points(all_data, start, how_many):
   z = all_data['z'][start:start + how_many]
@@ -1278,20 +1194,20 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     gamma = np.array(post.sample(how_many))
     gamma_out = np.zeros((gamma.shape[0], 2))
     gamma_out[:, 1] = gamma
-    data_dream = helper.generate_data_from_gammas(gamma_out, how_many, ['90'] * len(gamma_out))
+    data_dream = generate_data_from_gammas(gamma_out, how_many, ['90'] * len(gamma_out))
     return data_dream
   elif model == 'y':
     post = tfd.Normal(loc = mu, scale = Sigma)
     gamma = np.array(post.sample(how_many))
     gamma_out = np.zeros((gamma.shape[0], 2))
     gamma_out[:, 0] = gamma
-    data_dream = helper.generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
+    data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
     return data_dream
   elif model == '1x2D':
     post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
     gamma_out = np.array(post.sample(how_many))
     angles = infer_angles_from_gammas(gamma_out)
-    data_dream = helper.generate_data_from_gammas(gamma_out, how_many, angles)
+    data_dream = generate_data_from_gammas(gamma_out, how_many, angles)
     return data_dream
   elif model == '2x1D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1317,9 +1233,9 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     gammay = np.zeros((gamma_.shape[0], 2))
     gammay[:, 0] = gamma_
 
-    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
-    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
-    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
   elif model == '2x2D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1344,9 +1260,9 @@ def dream_data_from_posterior(model, posterior, how_many = None):
       
     gammay = np.array(post_y.sample(Ty))
     angles_y = infer_angles_from_gammas(gammay)
-    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, angles_x)
-    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, angles_y)
-    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
+    data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
   elif model == '2x1D_bg':
     Tx = how_many[0]
@@ -1366,9 +1282,9 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     gammay = np.zeros((gamma_.shape[0], 2))
     gammay[:, 0] = gamma_
 
-    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
-    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
-    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
   elif model == '2x2D_bg':
     Tx = how_many[0]
@@ -1382,7 +1298,7 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[1]), covariance_matrix=np.float64(Sigmas[1]))
     gammay = np.array(post_y.sample(Ty))
     angles_y = infer_angles_from_gammas(gammay)
-    data_dream_x = helper.generate_data_from_gammas(gammax, Tx, angles_x)
-    data_dream_y = helper.generate_data_from_gammas(gammay, Ty, angles_y)
-    data_dream = helper.concatenate_data(data_dream_x, data_dream_y)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
+    data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
