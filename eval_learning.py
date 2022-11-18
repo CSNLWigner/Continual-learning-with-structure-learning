@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 from itertools import zip_longest
 import helper
-from analysis import calc_mmllh_1task
-from analysis import calc_mmllh_2task
+from functions_for_2task import calc_mmllh_1task
+from functions_for_2task import calc_mmllh_2task
 from copy import deepcopy
 
 def learnGT(data,sigma_r,model_set=["x", "y"],marginalize=False, T0 = 0):
