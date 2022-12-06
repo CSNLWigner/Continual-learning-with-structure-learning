@@ -9,7 +9,7 @@ import tensorflow_probability as tfp
 
 
 
-def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", posterior = None, mmllh_prev = None):
+def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", posterior = None, mmllh_prev = None, ret_all_mmllhs = False):
   '''
   calculates the mmLLH, the posterior and the predicitive probability for models involving 1 task
   default values have to be used concurrently, this setting corresponds to full evaluation
@@ -43,6 +43,7 @@ def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
       Sigma_0 = 1.
 
   if evaluation == "full":
+    mmllh_list = []
     zs = data['z']
     rs = np.array(data['r'])
     if zs.size != 0:
@@ -72,9 +73,12 @@ def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
                 mu_i = Sigma_i.dot(z*r/sigma_r**2 + Sigma_i_invs[t-1].dot(mu_is[t-1]))
             mu_is.append(mu_i)
             y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
-            ys.append(y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i))
+            mmllh_list.append(y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i))
         posterior = (mu_i, Sigma_i)
-        return y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i), posterior
+        if ret_all_mmllhs:
+            return mmllh_list, posterior
+        else:
+            return y / multivariate_normal.pdf(mu_i, mean = np.array([0,0]), cov = Sigma_i), posterior
       else:
         '''
         Sigma_0 is the standard deviation of the gamma prior
@@ -108,9 +112,12 @@ def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
                 mu_i = Sigma_i * (z[integral_dim]*r/sigma_r**2 + Sigma_i_invs[t-1]*mu_is[t-1])
             mu_is.append(mu_i)
             y = y * multivariate_normal.pdf(r, mean = 0, cov = sigma_r**2)
-            ys.append(y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i))
+            mmllh_list.append(y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i))
         posterior = (mu_i, Sigma_i)
-        return y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i), posterior
+        if ret_all_mmllhs:
+            return mmllh_list, posterior
+        else:
+            return y / multivariate_normal.pdf(mu_i, mean = 0.0, cov = Sigma_i), posterior
     else:
       if model == '1x2D':
         post = ([0, 0], Sigma_0)
@@ -190,7 +197,7 @@ def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
       return mmllh_prev, post, pred_prob
 
 
-def model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, sigma_r, Sigma_0 = 1., N = 64, N2 = 64, verbose = True):
+def model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, sigma_r, Sigma_0 = 1., N = 64, N2 = 64, verbose = True, ret_all_mmllhs = False):
   
   z = data['z']
   r = np.array(data['r'])
@@ -210,7 +217,7 @@ def model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, sigma_
   kell_pruning = False # flag, ami egyszer allitodik
   if verbose:
     pbar = tf.keras.utils.Progbar(T)
-
+  mmllh_list = []
   for t in range(1, T + 1): # t darabszam
 
     if len(mus) >= N:
@@ -287,7 +294,7 @@ def model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, sigma_
     else:
       normalized_weights, norm = normalize_weights(normalized_weights)
       mmllh *= (norm/2)
-
+    mmllh_list.append(mmllh)
     
     if verbose:
       pbar.add(1)
@@ -316,10 +323,12 @@ def model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, sigma_
     mus = list(np.array(mus)[indices])
     Sigmas = list(np.array(Sigmas)[indices])
     data_point_counter_list = list(np.array(data_point_counter_list)[indices])
+  if ret_all_mmllhs:
+    return mmllh_list, mus, Sigmas, normalized_weights, data_point_counter_list
+  else:
+    return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list
 
-  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list
-
-def model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), N = 64, N2 = 64, verbose = True):
+def model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), N = 64, N2 = 64, verbose = True, ret_all_mmllhs = False):
   
   z = data['z']
   r = np.array(data['r'])
@@ -339,7 +348,7 @@ def model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, sigma_
   kell_pruning = False # flag, ami egyszer allitodik
   if verbose:
     pbar = tf.keras.utils.Progbar(T)
-
+  mmllh_list = []
   for t in range(1, T + 1): # t darabszam
 
     if len(mus) >= N:
@@ -416,7 +425,7 @@ def model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, sigma_
     else:
       normalized_weights, norm = normalize_weights(normalized_weights)
       mmllh *= (norm/2)
-
+    mmllh_list.append(mmllh)
     
     if verbose:
       pbar.add(1)
@@ -446,7 +455,10 @@ def model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, sigma_
     Sigmas = list(np.array(Sigmas)[indices])
     data_point_counter_list = list(np.array(data_point_counter_list)[indices])
 
-  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list 
+  if ret_all_mmllhs:
+    return mmllh_list, mus, Sigmas, normalized_weights, data_point_counter_list
+  else:
+    return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list
 
 def normalize_weights(weights):
   norm = sum(weights)
@@ -585,7 +597,7 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
     zx = z[x_indices]
     rx = r[x_indices]
     Tx = zx.shape[0]
-    cx = 'x'
+    cx = '90'
     datax = {'z': zx, 'r': rx}
     mmllh_x, mu_x, sigma_x = model_marginal_llh_analytic_posterior_aswell(datax, sigma_r, Sigma_0 = Sigma_0, model = 'x')
   else:
@@ -595,7 +607,7 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
     cx = ''
     Tx = 0
   if len(complementer_subset) > 0:
-    cy = 'y'
+    cy = '0'
     zy = z[complementer_subset]
     ry = r[complementer_subset]
     datay = {'z': zy, 'r': ry}
@@ -737,8 +749,8 @@ def mmllh_2x2D_PF_from_posterior(posterior, mmllh_prev, data, sigma_r, Sigma_0, 
     mus = list(np.array(mus)[indices])
     Sigmas = list(np.array(Sigmas)[indices])
     data_point_counter_list = list(np.array(data_point_counter_list)[indices])
-
-  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list 
+  pp = mmllh / mmllh_prev
+  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list, pp
 
 
 def mmllh_2x1D_PF_from_posterior(posterior, mmllh_prev, data, sigma_r, Sigma_0, N, N2, verbose):
@@ -867,8 +879,8 @@ def mmllh_2x1D_PF_from_posterior(posterior, mmllh_prev, data, sigma_r, Sigma_0, 
     mus = list(np.array(mus)[indices])
     Sigmas = list(np.array(Sigmas)[indices])
     data_point_counter_list = list(np.array(data_point_counter_list)[indices])
-
-  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list
+  pp = mmllh / mmllh_prev
+  return mmllh, mus, Sigmas, normalized_weights, data_point_counter_list, pp
 
 def filter_based_on_context(data, context):
   c = np.array(data['c'])
@@ -906,6 +918,7 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mmllh_2x2D_with_background(data, sigma_r, Sigma_0)
     return mmllhs, posterior, new_contexts
   elif len(prev_contexts) == 1:  # T1 or T2 is zero in this case
+    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
     if len(mmllhs_prev) == 2:
       assert 1 in mmllhs_prev, "in case of 1 prev context, one of the prev mmllhs should be 1."
     mus_prev,\
@@ -945,9 +958,12 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     cont_list = [prev_context, new_context]
     if '' in cont_list:
       cont_list.remove('')
-    return [mmllh_1_new, mmllh_2_new], post_ret, cont_list
+    mmllh_new = mmllh_1_new * mmllh_2_new
+    pred_prob = mmllh_new / mmllh_previous
+    return [mmllh_1_new, mmllh_2_new], post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
+    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
@@ -971,7 +987,9 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
         sigmas.append(sigmas_prev[i])
         Ts.append(Ts_prev[i])
     post_ret = [mus, sigmas, Ts]
-    return mmllhs, post_ret, prev_contexts
+    mmllh_new = mmllhs[0] * mmllhs[1]
+    pred_prob = mmllh_new / mmllh_previous
+    return mmllhs, post_ret, prev_contexts, pred_prob
       
   
   
@@ -992,6 +1010,7 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mmllh_2x1D_with_background(data, sigma_r, Sigma_0)
     return mmllhs, posterior, new_contexts
   elif len(prev_contexts) == 1:  # T1 or T2 is zero in this case
+    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
     if len(mmllhs_prev) == 2:
       assert 1 in mmllhs_prev, "in case of 1 prev context, one of the prev mmllhs should be 1."
     mus_prev,\
@@ -1005,6 +1024,9 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
       mmllhs_prev_copy.remove(1)
     mmllh_prev = mmllhs_prev_copy[0]
     prev_context = prev_contexts[0]
+    x_is_the_prev = False
+    if prev_context == '90':
+        x_is_the_prev = True
     data_with_prev_cont = filter_based_on_context(data, prev_context)
     if data_with_prev_cont is not None:
       T1 = Ts_prev[-1] + len(data_with_prev_cont['z'])
@@ -1033,13 +1055,22 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
       T2 = 0
       mmllh_2_new = 1.
       new_context = ''
-    post_ret = [[mu_1_new, mu_2_new], [sigma_1_new, sigma_2_new], [T1, T2]]
-    cont_list = [prev_context, new_context]
+    if x_is_the_prev:
+        post_ret = [[mu_1_new, mu_2_new], [sigma_1_new, sigma_2_new], [T1, T2]]
+        cont_list = [prev_context, new_context]
+        mmllhs_returned = [mmllh_1_new, mmllh_2_new]
+    else:
+        post_ret = [[mu_2_new, mu_1_new], [sigma_2_new, sigma_1_new], [T2, T1]]
+        cont_list = [new_context, prev_context]
+        mmllhs_returned = [mmllh_2_new, mmllh_1_new]
     if '' in cont_list:
       cont_list.remove('')
-    return [mmllh_1_new, mmllh_2_new], post_ret, cont_list
+    mmllh_new = mmllh_1_new * mmllh_2_new
+    pred_prob = mmllh_new / mmllh_previous
+    return mmllhs_returned, post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
+    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
@@ -1065,8 +1096,15 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
         mus.append(mus_prev[i])
         sigmas.append(sigmas_prev[i])
         Ts.append(Ts_prev[i])
+
     post_ret = [mus, sigmas, Ts]
-    return mmllhs, post_ret, prev_contexts
+    mmllh_new = mmllhs[0] * mmllhs[1]
+    pred_prob = mmllh_new / mmllh_previous
+    return mmllhs, post_ret, prev_contexts, pred_prob
+      
+  
+  
+
       
   
   
@@ -1079,7 +1117,7 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
 
 
 
-def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", num_particles = 64, verbose = False, marginalize = True, posterior_prev = None, mmllh_prev = None, mmllhs_prev = None, prev_contexts = None):
+def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", num_particles = 64, verbose = False, marginalize = True, posterior_prev = None, mmllh_prev = None, mmllhs_prev = None, prev_contexts = None, ret_all_mmllhs = False):
   '''
   calculates the mmLLH, the posterior and the predicitive probability for models involving 2 task
   default values have to be used concurrently, this setting corresponds to full evaluation
@@ -1136,40 +1174,64 @@ def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
   if evaluation == "full":
     if model == "2x1D":
       if marginalize:
-        mmllh, mus, Sigmas, normalized_weights, data_point_counter_list = \
-        model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, 
-                                                                        sigma_r, 
-                                                                        Sigma_0 = Sigma_0, 
-                                                                        N = num_particles, 
-                                                                        N2 = num_particles, 
-                                                                        verbose = verbose)
-        posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
-        return mmllh, posterior
+        if ret_all_mmllhs:
+            mmllh_list, mus, Sigmas, normalized_weights, data_point_counter_list = \
+            model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, 
+                                                                            sigma_r, 
+                                                                            Sigma_0 = Sigma_0, 
+                                                                            N = num_particles, 
+                                                                            N2 = num_particles, 
+                                                                            verbose = verbose,
+                                                                            ret_all_mmllhs = True)
+            posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
+            return mmllh_list, posterior
+        else:
+            mmllh, mus, Sigmas, normalized_weights, data_point_counter_list = \
+            model_marginal_llh_analytic_2x1D_PF_randomized_posterior_aswell(data, 
+                                                                            sigma_r, 
+                                                                            Sigma_0 = Sigma_0, 
+                                                                            N = num_particles, 
+                                                                            N2 = num_particles, 
+                                                                            verbose = verbose)
+            posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
+            return mmllh, posterior
       else:
-        mmllh, mus, Sigmas, data_point_counter_list = \
+        mmllhs, mus, Sigmas, data_point_counter_list, contexts = \
         mmllh_2x1D_with_background(data, sigma_r, Sigma_0)
         posterior = (mus, Sigmas, data_point_counter_list)
-        return mmllh, posterior
+        return mmllhs, posterior, contexts
     elif model == "2x2D":
       if marginalize:
-        mmllh, mus, Sigmas, normalized_weights, data_point_counter_list = \
-        model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, 
-                                                                        sigma_r, 
-                                                                        Sigma_0 = Sigma_0, 
-                                                                        N = num_particles, 
-                                                                        N2 = num_particles, 
-                                                                        verbose = verbose)
-        posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
-        return mmllh, posterior
+        if ret_all_mmllhs:
+            mmllh_list, mus, Sigmas, normalized_weights, data_point_counter_list = \
+            model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, 
+                                                                            sigma_r, 
+                                                                            Sigma_0 = Sigma_0, 
+                                                                            N = num_particles, 
+                                                                            N2 = num_particles, 
+                                                                            verbose = verbose,
+                                                                            ret_all_mmllhs = True)
+            posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
+            return mmllh_list, posterior
+        else:
+            mmllh, mus, Sigmas, normalized_weights, data_point_counter_list = \
+            model_marginal_llh_analytic_2x2D_PF_randomized_posterior_aswell(data, 
+                                                                            sigma_r, 
+                                                                            Sigma_0 = Sigma_0, 
+                                                                            N = num_particles, 
+                                                                            N2 = num_particles, 
+                                                                            verbose = verbose)
+            posterior = (mus, Sigmas, normalized_weights, data_point_counter_list)
+            return mmllh, posterior
       else:
-        mmllh, mus, Sigmas, data_point_counter_list, contexts = \
+        mmllhs, mus, Sigmas, data_point_counter_list, contexts = \
         mmllh_2x2D_with_background(data, sigma_r, Sigma_0)
         posterior = (mus, Sigmas, data_point_counter_list)
-        return mmllh, posterior, contexts
+        return mmllhs, posterior, contexts
   elif evaluation == "iterative":
     if model == "2x1D":
       if marginalize:
-        mmllh, *posterior = \
+        mmllh, *posterior, pp = \
         mmllh_2x1D_PF_from_posterior(posterior_prev,
                                      mmllh_prev,
                                     data,
@@ -1177,14 +1239,14 @@ def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
                                     Sigma_0 = Sigma_0,
                                     N = num_particles, N2 = num_particles,
                                     verbose = verbose)
-        return mmllh, posterior
+        return mmllh, posterior, pp
       else:
-        mmllhs, posterior, contexts = mmllh_2x1D_bg_from_posterior(posterior_prev, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0)
-        return mmllhs, posterior, contexts
+        mmllhs, posterior, contexts, pred_prob = mmllh_2x1D_bg_from_posterior(posterior_prev, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0)
+        return mmllhs, posterior, contexts, pred_prob
 
     elif model == "2x2D":
       if marginalize:
-        mmllh, *posterior = \
+        mmllh, *posterior, pp = \
         mmllh_2x2D_PF_from_posterior(posterior_prev,
                                      mmllh_prev,
                                     data,
@@ -1192,10 +1254,10 @@ def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", 
                                     Sigma_0 = Sigma_0,
                                     N = num_particles, N2 = num_particles,
                                     verbose = verbose)
-        return mmllh, posterior
+        return mmllh, posterior, pp
       else:
-        mmllhs, posterior, contexts = mmllh_2x2D_bg_from_posterior(posterior_prev, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0)
-        return mmllhs, posterior, contexts
+        mmllhs, posterior, contexts, pp = mmllh_2x2D_bg_from_posterior(posterior_prev, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0)
+        return mmllhs, posterior, contexts, pp
 
 
 

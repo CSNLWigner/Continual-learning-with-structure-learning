@@ -9,6 +9,29 @@ from copy import deepcopy
 import pandas as pd
 
 
+def generate_batch_data(task_alphas, batch_size, num_of_batches):
+  data1 = generate_data(batch_size, alpha = task_alphas[0])
+  data2 = generate_data(batch_size, alpha = task_alphas[1])
+  data = concatenate_data(data1, data2)
+  for i in range(1, num_of_batches):
+    data1 = generate_data(batch_size, alpha = task_alphas[0])
+    data2 = generate_data(batch_size, alpha = task_alphas[1])
+    data_ = concatenate_data(data1, data2)
+    data = concatenate_data(data, data_)
+  return data
+  
+def plot_mmllh_curves(learning_dict, model_set, D, T, color_dict, filepath, title):
+  x = np.arange(1, T + 1)
+  for model in model_set:
+    mmllh = learning_dict[model]['mmllh']
+    color = color_dict['model_' + model]
+    plt.plot(x, np.mean(np.log(mmllh), axis = 0), label = model, linewidth = 4, color = color)
+  plt.xlabel('number of points')
+  plt.ylabel('log mmllh')
+  plt.legend()
+  plt.title(title)
+  plt.savefig(filepath)
+
 def infer_angles_from_gammas(gammas):
   return list(np.arctan(gammas[:, 1] / gammas[:, 0]) * 180 / np.pi)
 
@@ -1167,6 +1190,15 @@ def generate_informative_y_data(Ty, informativeness):
   return datay
 
 
+def homogenize_EM(EM):
+  gen = data_generator(EM)
+  for i, point in enumerate(gen):
+    if i == 0:
+      first_c = point['c'][0]
+    else:
+      EM['c'][i] = first_c
+
+
 def dream_data_from_posterior(model, posterior, how_many = None):
   '''
   structure of posterior:
@@ -1300,5 +1332,142 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     angles_y = infer_angles_from_gammas(gammay)
     data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
     data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    return data_dream
+
+def GR(learning_dict, task_angles_in_data, how_many = None):
+  '''
+  structure of posterior:
+      model x, y, 1x2D: [mu, Sigma]
+      model 2x1D, 2x2D: [mus, Sigmas, normalized_weights, data_point_counter_list]
+      model 2x1D_bg, 2x2D_bg: [mus, Sigmas, data_point_counter_list]
+
+  how_many:
+      model x, y, 1x2D: integer scalar
+      model 2x1D_bg, 2x2D_bg: list of integer scalars
+      model 2x1D, 2x2D: None
+
+  (in case of model 2x1D and 2x2D parameter how_many is not needed bc of the dreaming method)
+  '''
+  model = learning_dict['prominent_models'][-1]
+  posterior = learning_dict[model]['posteriors'][-1]
+  if model == 'x' or model == 'y' or model == '1x2D':
+    mu, Sigma = posterior
+  elif model == "2x1D" or model == "2x2D":
+    mus, Sigmas, normalized_weights, data_point_counter_list = posterior
+  elif model == "2x1D_bg" or model == "2x2D_bg":
+    mus, Sigmas, _ = posterior
+
+  if model == 'x':
+    post = tfd.Normal(loc = mu, scale = Sigma)
+    gamma = np.array(post.sample(how_many))
+    gamma_out = np.zeros((gamma.shape[0], 2))
+    gamma_out[:, 1] = gamma
+    data_dream = generate_data_from_gammas(gamma_out, how_many, ['90'] * len(gamma_out))
+    return data_dream
+  elif model == 'y':
+    post = tfd.Normal(loc = mu, scale = Sigma)
+    gamma = np.array(post.sample(how_many))
+    gamma_out = np.zeros((gamma.shape[0], 2))
+    gamma_out[:, 0] = gamma
+    data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
+    return data_dream
+  elif model == '1x2D':
+    post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
+    gamma_out = np.array(post.sample(how_many))
+    #angles = infer_angles_from_gammas(gamma_out)
+    data_dream = generate_data_from_gammas(gamma_out, how_many, [str(task_angles_in_data[0])] * how_many)
+    return data_dream
+  elif model == '2x1D':
+    bernoulli = tfd.Categorical(probs = normalized_weights)
+    chosen_particle_idx = bernoulli.sample(1)
+    Tx = data_point_counter_list[int(chosen_particle_idx)][0]
+    Ty = data_point_counter_list[int(chosen_particle_idx)][1]
+
+    # model x separately
+    components_x = []
+    for i in range(len(normalized_weights)):
+      components_x.append(tfd.Normal(loc = np.float64(mus[i][0]), scale=np.float64(Sigmas[i][0])))
+    post_x = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_x)
+    gamma_ = np.array(post_x.sample(Tx))
+    gammax = np.zeros((gamma_.shape[0], 2))
+    gammax[:, 1] = gamma_
+
+    # model y separately
+    components_y = []
+    for i in range(len(normalized_weights)):
+      components_y.append(tfd.Normal(loc = np.float64(mus[i][1]), scale=np.float64(Sigmas[i][1])))
+    post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
+    gamma_ = np.array(post_y.sample(Ty))
+    gammay = np.zeros((gamma_.shape[0], 2))
+    gammay[:, 0] = gamma_
+
+    data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    return data_dream
+  elif model == '2x2D':
+    bernoulli = tfd.Categorical(probs = normalized_weights)
+    chosen_particle_idx = bernoulli.sample(1)
+    Tx = data_point_counter_list[int(chosen_particle_idx)][0]
+    Ty = data_point_counter_list[int(chosen_particle_idx)][1]
+
+    #kulon x-re
+    components_x = []
+    for i in range(len(normalized_weights)):
+      components_x.append(tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[i][0]), covariance_matrix=np.float64(Sigmas[i][0])))
+    post_x = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_x)
+    
+    gammax = np.array(post_x.sample(Tx))
+    angles_x = infer_angles_from_gammas(gammax)
+
+    #kulon y-ra
+    components_y = []
+    for i in range(len(normalized_weights)):
+      components_y.append(tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[i][1]), covariance_matrix=np.float64(Sigmas[i][1])))
+    post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
+      
+    gammay = np.array(post_y.sample(Ty))
+    angles_y = infer_angles_from_gammas(gammay)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
+    data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    return data_dream
+  elif model == '2x1D_bg':
+    Tx = how_many[0]
+    Ty = how_many[1]
+
+    # dreaming from x
+    post_x = tfd.Normal(loc = np.float64(mus[0]), scale=np.float64(Sigmas[0]))
+      
+    gamma_ = np.array(post_x.sample(Tx))
+    gammax = np.zeros((gamma_.shape[0], 2))
+    gammax[:, 1] = gamma_
+
+    # dreaming from y
+    post_y = tfd.Normal(loc = np.float64(mus[1]), scale=np.float64(Sigmas[1]))
+     
+    gamma_ = np.array(post_y.sample(Ty))
+    gammay = np.zeros((gamma_.shape[0], 2))
+    gammay[:, 0] = gamma_
+
+    data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    return data_dream
+  elif model == '2x2D_bg':
+    Tx = how_many[0]
+    Ty = how_many[1]
+    
+    # dreaming from task1
+    post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[0]), covariance_matrix=np.float64(Sigmas[0]))
+    gammax = np.array(post_x.sample(Tx))
+    #angles_x = infer_angles_from_gammas(gammax)
+    # dreaming from task2
+    post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[1]), covariance_matrix=np.float64(Sigmas[1]))
+    gammay = np.array(post_y.sample(Ty))
+    #angles_y = infer_angles_from_gammas(gammay)
+    data_dream_x = generate_data_from_gammas(gammax, Tx, [str(task_angles_in_data[0])] * Tx)
+    data_dream_y = generate_data_from_gammas(gammay, Ty, [str(task_angles_in_data[1])] * Ty)
     data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
