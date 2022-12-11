@@ -9,7 +9,7 @@ from copy import deepcopy
 import pandas as pd
 
 
-def generate_batch_data(task_alphas, batch_size, num_of_batches):
+def generate_batch_data_old(task_alphas, batch_size, num_of_batches):
   data1 = generate_data(batch_size, alpha = task_alphas[0])
   data2 = generate_data(batch_size, alpha = task_alphas[1])
   data = concatenate_data(data1, data2)
@@ -19,6 +19,14 @@ def generate_batch_data(task_alphas, batch_size, num_of_batches):
     data_ = concatenate_data(data1, data2)
     data = concatenate_data(data, data_)
   return data
+
+def generate_batch_data(task_alphas, batch_size, num_of_batches):
+  batches = []
+  for i in range(num_of_batches):
+    batch = concatenate_data([generate_data(batch_size, alpha = alpha) for alpha in task_alphas])
+    batches.append(batch)
+  return concatenate_data(batches)
+
   
 def plot_mmllh_curves(learning_dict, model_set, D, T, color_dict, filepath, title):
   x = np.arange(1, T + 1)
@@ -192,11 +200,19 @@ def index_of_first_model_change(mllhs, model_id=0, never_result=np.nan):
     return id_change
 
 
-def concatenate_data(data1, data2):
+def concatenate_data_old(data1, data2):
   z = np.concatenate((data1['z'], data2['z']), 0)
   r = np.concatenate((np.array(data1['r']), np.array(data2['r'])))
   c = data1['c'] + data2['c']
   return {'z': z, 'r': r, 'c': c}
+
+
+def concatenate_data(data_iterable):
+  z = np.concatenate([item['z'] for item in data_iterable], 0)
+  r = np.concatenate([np.array(item['r']) for item in data_iterable])
+  c = np.concatenate([np.array(item['c']) for item in data_iterable])
+  return {'z': z, 'r': r, 'c': list(c)}
+
 
 def gamma_posterior_analytic(data, sigma_r, Sigma_0 = np.array([[1., 0.], [0., 1.]]), model = '2d'):
     zs = data['z']
@@ -1404,7 +1420,7 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
 
     data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
     data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
-    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x2D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1431,7 +1447,7 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
     angles_y = infer_angles_from_gammas(gammay)
     data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
     data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
-    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x1D_bg':
     Tx = how_many[0]
@@ -1453,7 +1469,7 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
 
     data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
     data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
-    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x2D_bg':
     Tx = how_many[0]
@@ -1469,5 +1485,6 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
     #angles_y = infer_angles_from_gammas(gammay)
     data_dream_x = generate_data_from_gammas(gammax, Tx, [str(task_angles_in_data[0])] * Tx)
     data_dream_y = generate_data_from_gammas(gammay, Ty, [str(task_angles_in_data[1])] * Ty)
-    data_dream = concatenate_data(data_dream_x, data_dream_y)
+    data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
+
