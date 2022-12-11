@@ -29,6 +29,12 @@ def generate_batch_data(task_alphas, batch_size, num_of_batches):
 
   
 def plot_mmllh_curves(learning_dict, model_set, D, T, color_dict, filepath, title):
+  import numpy as np
+  import matplotlib.pyplot as plt
+  from matplotlib.pyplot import rcParams
+  rcParams['font.size'] = 15
+  rcParams['figure.figsize'] = (15, 10)
+  plt.figure()
   x = np.arange(1, T + 1)
   for model in model_set:
     mmllh = learning_dict[model]['mmllh']

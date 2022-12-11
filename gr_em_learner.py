@@ -266,7 +266,7 @@ def GR_EM_learner_korabbi(data, sigma_r, model_set, num_particles = 256, D = 10,
       learning_dict, new_point_is_exciting = evaluate_prominent(new_data, learning_dict, sigma_r, pp_thr, t, num_particles)
       if new_point_is_exciting:
         if EM_exists:
-          EM = h.concatenate_data(EM, new_data)
+          EM = h.concatenate_data([EM, new_data])
         else:
           EM = deepcopy(new_data)
           EM_exists = True
@@ -289,7 +289,7 @@ def GR_EM_learner_korabbi(data, sigma_r, model_set, num_particles = 256, D = 10,
       for dream_idx in range(D):
         data_dream = h.GR(learning_dict, how_many = num_points_to_dream)
         if EM_exists:
-          data_whole = h.concatenate_data(data_dream, EM)
+          data_whole = h.concatenate_data([data_dream, EM])
         else:
           data_whole = data_dream
         learning_dict = evaluate_non_prominents(data_whole, learning_dict, sigma_r, dream_idx, model_set, num_particles, t, D)
@@ -329,7 +329,7 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
                 if len(np.unique(EM['c'])) == 2:
                     pass
                     #homogenize_EM(EM)
-            EM = h.concatenate_data(EM, new_data)
+            EM = h.concatenate_data([EM, new_data])
         else:
           EM = deepcopy(new_data)
           EM_exists = True
@@ -352,7 +352,7 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
       for dream_idx in range(D):
         data_dream = h.GR(learning_dict, task_angles_in_data, how_many = num_points_to_dream)
         if EM_exists:
-          data_whole = h.concatenate_data(data_dream, EM)
+          data_whole = h.concatenate_data([data_dream, EM])
         else:
           data_whole = data_dream
         learning_dict = evaluate_non_prominents(data_whole, learning_dict, sigma_r, dream_idx, model_set, num_particles, t, D)
