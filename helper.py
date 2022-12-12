@@ -48,6 +48,9 @@ def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
             id_change = len(a) - np.argmin(np.flip(a))
     return id_change
 
+def model_change_time(learning_dict, desired_model):
+    return learning_dict['prominent_models'].index(desired_model)
+
 ########################################### Functions that take data dictionaries as input ###########################################
 
 def concatenate_data(data1, data2):
