@@ -16,5 +16,6 @@ The goal of this project is to build a toy model for continual learning with hie
 - exp_GT_diagonal: a single run of a GT learner diagonal data
 - exp_GT_data_rotation: experiment for effect of task complexity, computes model switching times on original and rotated data
 - exp_GR_cardinal: scatter plot of GT vs GR switching times for cardinal data
+- exp_EMvsGR_cardinal: scatter plot of GT vs GR vs EM switching times for cardinal data
 
 - experiments_1: Gergo's experiments
