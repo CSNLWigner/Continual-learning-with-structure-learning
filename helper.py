@@ -90,7 +90,7 @@ def reorder_data(data, indices):
         data_out[key] = data[key][indices]
     return data_out
 
-def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, colorbar=True, ticks=True, marker='o'):
+def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, colorbar=True, ticks=True, marker='o', figsize=None):
     '''
     Create a plot from a data dictionary.
     '''
@@ -124,8 +124,22 @@ def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabe
                 textcoords='offset points', ha='right', va='bottom',
                 bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
                 arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
 
-            
+def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None):
+    plt.figure()
+    x = np.arange(1, T + 1)
+    for model in model_set:
+        mmllh = learning_dict[model]['mmllh']
+        color = color_dict['model_' + model]
+        plt.plot(x, np.mean(np.log(mmllh), axis = 0), label = model, linewidth = 4, color = color)
+    plt.xlabel('number of points')
+    plt.ylabel('log mmllh')
+    plt.legend()
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
 ########################################### Functions associated with 1x2D model ###########################################
 
 
