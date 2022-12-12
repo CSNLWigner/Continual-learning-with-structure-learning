@@ -59,6 +59,28 @@ def concatenate_data(data1, data2):
         data_out[key] = np.concatenate((data1[key], data2[key]))
     return data_out
 
+def split_data(data, split):
+    '''
+    Split a data dictionary into two data dictionaries.
+    '''
+    data1 = {}
+    data2 = {}
+    for key in data.keys():
+        data1[key] = data[key][:split]
+        data2[key] = data[key][split:]
+    return data1, data2
+
+def split_data_by_index(data, indices):
+    '''
+    Split a data dictionary into two data dictionaries.
+    '''
+    data1 = {}
+    data2 = {}
+    for key in data.keys():
+        data1[key] = data[key][indices]
+        data2[key] = np.delete(data[key], indices, 0)
+    return data1, data2
+
 def reorder_data(data, indices):
     '''
     Reorder datapoints in a data dictionary by indices specified by a numpy array.
@@ -68,7 +90,7 @@ def reorder_data(data, indices):
         data_out[key] = data[key][indices]
     return data_out
 
-def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, colorbar=True, ticks=True, marker='o'):
+def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, colorbar=True, ticks=True, marker='o'):
     '''
     Create a plot from a data dictionary.
     '''
@@ -76,6 +98,9 @@ def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, colorba
     plt.gca().set_aspect('equal')
     plt.xlim([-limit,limit])
     plt.ylim([-limit,limit])
+    if show_axes:
+        plt.axvline(x = 0, color = 'k', linestyle = '--')
+        plt.axhline(y = 0, color = 'k', linestyle = '--')
     if axislabels:
         plt.xlabel('z_1')
         plt.ylabel('z_2')
