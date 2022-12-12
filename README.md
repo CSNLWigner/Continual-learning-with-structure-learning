@@ -10,6 +10,7 @@ The goal of this project is to build a toy model for continual learning with hie
 - colorscheme: definition of color schemes for plots
 - gt_learner:
 - gr_em_learner:
+- models: 
 
 ### Notebooks
 - exp_GT_cardinal: a single run of a GT learner on cardinal data (PF?)
