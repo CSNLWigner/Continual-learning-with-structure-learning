@@ -33,7 +33,7 @@ def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
     else:
         id_change = np.nonzero(ids_of_best_model == model_id)[0][0]
     return id_change
-    
+
 
 def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
     '''Given a list of mllhs, computes first time index where best model is model_id'''
@@ -134,13 +134,19 @@ def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabe
     if figsize is not None:
         plt.gcf().set_size_inches(figsize)
 
-def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None):
+def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model = True):
     plt.figure()
     x = np.arange(1, T + 1)
     for model in model_set:
         mmllh = learning_dict[model]['mmllh']
         color = color_dict['model_' + model]
         plt.plot(x, np.mean(np.log(mmllh), axis = 0), label = model, linewidth = 4, color = color)
+    if indicate_best_model:
+        for t in range(T):
+            mmllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
+            best_model = model_set[np.argmax(np.mean(mmllh_t, axis = 1))]
+            color = color_dict['model_' + best_model]
+            plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
     plt.xlabel('number of points')
     plt.ylabel('log mmllh')
     plt.legend()
