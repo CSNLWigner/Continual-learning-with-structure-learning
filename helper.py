@@ -134,7 +134,11 @@ def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabe
     if figsize is not None:
         plt.gcf().set_size_inches(figsize)
 
+
 def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model = True):
+    '''
+    Plot the mean mmllh curves for a set of models. Option to indicate the best model at each time step.
+    '''
     plt.figure()
     x = np.arange(1, T + 1)
     for model in model_set:
@@ -147,9 +151,38 @@ def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, ind
             best_model = model_set[np.argmax(np.mean(mmllh_t, axis = 1))]
             color = color_dict['model_' + best_model]
             plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
-    plt.xlabel('number of points')
+    plt.xlabel('time')
     plt.ylabel('log mmllh')
     plt.legend()
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
+
+def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True):
+    '''
+    Plot mean mllh curves for a set of models in subplots for different learners.
+    Input is a list of result dictionaries. 
+    Option to indicate the best model at each time step.
+    '''
+    plt.figure()
+    x = np.arange(1, T + 1)
+    for i, learning_dict in enumerate(learning_dicts):
+        plt.subplot(1, len(learning_dicts), i + 1)
+        for model in model_set:
+            mllh = learning_dict[model]['mmllh']
+            color = color_dict['model_' + model]
+            plt.plot(x, np.mean(np.log(mllh), axis = 0), label = model, linewidth = 4, color = color)
+        if indicate_best_model:
+            for t in range(T):
+                mllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
+                best_model = model_set[np.argmax(np.mean(mllh_t, axis = 1))]
+                color = color_dict['model_' + best_model]
+                plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
+        #Labels
+        if i == 0:
+            plt.legend()
+            plt.xlabel('time')
+            plt.ylabel('log mllh')
     if figsize is not None:
         plt.gcf().set_size_inches(figsize)
 
