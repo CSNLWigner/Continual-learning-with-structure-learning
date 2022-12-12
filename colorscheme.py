@@ -30,3 +30,13 @@ colorPalette=colorPalette3
 modelColors = {'x': colorPalette[0], 'y': colorPalette[1], '1x2D': colorPalette[2], '2x1D': colorPalette[3], '2x2D': colorPalette[4], '2x1D_bg': colorPalette[3], '2x2D_bg': colorPalette[4]}
 
 modelIDs={"x":0, "y":1, "1x2D":2, "2x1D":3, "2x2D":4, "2x1D_bg":5, "2x2D_bg":6}
+
+model_colors_gergo = dict(
+    model_x = colorPalette[0],
+    model_y = colorPalette[1],
+    model_1x2D = colorPalette[2],
+    model_2x1D_bg = colorPalette[3],
+    model_2x2D_bg = colorPalette[4],
+    model_2x1D = colorPalette[3],
+    model_2x2D = colorPalette[4]
+)
