@@ -49,7 +49,11 @@ def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
     return id_change
 
 def model_change_time(learning_dict, desired_model):
-    return learning_dict['prominent_models'].index(desired_model)
+    try:
+        switch_time = learning_dict['prominent_models'].index(desired_model)
+    except ValueError:
+        switch_time = np.nan
+    return switch_time
 
 ########################################### Functions that take data dictionaries as input ###########################################
 
