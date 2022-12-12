@@ -134,6 +134,46 @@ def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabe
     if figsize is not None:
         plt.gcf().set_size_inches(figsize)
 
+def plot_data_subplots(data_list, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, ticks=True, marker='o', figsize=None, titles=None):
+    '''
+    Create a plot from a data dictionary.
+    '''
+    for i in range(len(data_list)):
+        plt.subplot(1, len(data_list), i + 1)
+        plt.scatter(*data_list[i]['z'].T,c=data_list[i]['r'], marker=marker, vmin=-climit, vmax=climit)
+        plt.gca().set_aspect('equal')
+        plt.xlim([-limit,limit])
+        plt.ylim([-limit,limit])
+        if show_axes:
+            plt.axvline(x = 0, color = 'k', linestyle = '--')
+            plt.axhline(y = 0, color = 'k', linestyle = '--')
+        if titles is not None:
+            plt.title(titles[i])
+        if i==0:
+            if axislabels:
+                plt.xlabel('z_1')
+                plt.ylabel('z_2')
+            if labels:
+                labels = ['{0}'.format(i) for i in range(data_list[i]['z'].shape[0])]
+                for label, x, y in zip(labels, data_list[i]['z'][:, 0], data_list[i]['z'][:, 1]):
+                    plt.annotate(
+                        label,
+                        xy=(x, y), xytext=(-20, 20),
+                        textcoords='offset points', ha='right', va='bottom',
+                        bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                        arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+        if not ticks:
+            plt.tick_params(
+            axis='both',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            labelbottom=False,
+            left=False,
+            labelleft=False) # labels along the bottom edge are off
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
 
 def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model = True):
     '''
@@ -158,7 +198,7 @@ def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, ind
         plt.gcf().set_size_inches(figsize)
 
 
-def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True):
+def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True, titles=None):
     '''
     Plot mean mllh curves for a set of models in subplots for different learners.
     Input is a list of result dictionaries. 
@@ -178,6 +218,8 @@ def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize
                 best_model = model_set[np.argmax(np.mean(mllh_t, axis = 1))]
                 color = color_dict['model_' + best_model]
                 plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
+        if titles is not None:
+            plt.title(titles[i])
         #Labels
         if i == 0:
             plt.legend()
