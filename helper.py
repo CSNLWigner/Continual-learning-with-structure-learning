@@ -175,7 +175,7 @@ def plot_data_subplots(data_list, labels=False, limit=1.75, climit=1, show_axes=
         plt.gcf().set_size_inches(figsize)
 
 
-def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model = True):
+def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model=True, markersize=10, data=None, ctx_markers=False):
     '''
     Plot the mean mmllh curves for a set of models. Option to indicate the best model at each time step.
     '''
@@ -185,12 +185,22 @@ def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, ind
         mmllh = learning_dict[model]['mmllh']
         color = color_dict['model_' + model]
         plt.plot(x, np.mean(np.log(mmllh), axis = 0), label = model, linewidth = 4, color = color)
+    if data is not None:
+        context = np.unique(data['c'], return_inverse=True)
+        for t in range(T):
+            if t > 0 and context[1][t] != context[1][t-1]:
+                plt.axvline(t + 1, color = 'lightgray', linestyle = '--')
+        if ctx_markers:
+            ctx_color_dict = {'context_0': 'darkgray', 'context_1': 'lightgray', 'context_2': 'black'}
+            ylimit = plt.ylim()[0]
+            for t in range(T):
+                plt.plot(t + 1, ylimit, 's', color = ctx_color_dict['context_' + str(context[1][t])], markersize = markersize)
     if indicate_best_model:
         for t in range(T):
             mmllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
             best_model = model_set[np.argmax(np.mean(mmllh_t, axis = 1))]
             color = color_dict['model_' + best_model]
-            plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
+            plt.plot(t + 0.5, 0, 's', color = color, markersize = markersize)
     plt.xlabel('time')
     plt.ylabel('log mmllh')
     plt.legend()
