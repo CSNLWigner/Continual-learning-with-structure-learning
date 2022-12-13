@@ -208,7 +208,7 @@ def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, ind
         plt.gcf().set_size_inches(figsize)
 
 
-def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True, titles=None):
+def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True, titles=None, markersize=10, data=None):
     '''
     Plot mean mllh curves for a set of models in subplots for different learners.
     Input is a list of result dictionaries. 
@@ -222,12 +222,17 @@ def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize
             mllh = learning_dict[model]['mmllh']
             color = color_dict['model_' + model]
             plt.plot(x, np.mean(np.log(mllh), axis = 0), label = model, linewidth = 4, color = color)
+        if data is not None:
+            context = np.unique(data['c'], return_inverse=True)
+            for t in range(T):
+                if t > 0 and context[1][t] != context[1][t-1]:
+                    plt.axvline(t + 0.5, color = 'lightgray', linestyle = '--')
         if indicate_best_model:
             for t in range(T):
                 mllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
                 best_model = model_set[np.argmax(np.mean(mllh_t, axis = 1))]
                 color = color_dict['model_' + best_model]
-                plt.plot(t + 1, 0, 'o', color = color, markersize = 10)
+                plt.plot(t + 1, 0, 's', color = color, markersize = markersize)
         if titles is not None:
             plt.title(titles[i])
         #Labels
