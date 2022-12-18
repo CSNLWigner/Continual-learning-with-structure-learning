@@ -315,12 +315,15 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
     if t == 1:  # evaluate all models "fully"
       learning_dict = evaluate_all_full(new_data, learning_dict, sigma_r, model_set, num_particles)
       prominent_model = learning_dict['prominent_models'][-1]
+      full_gt_data = new_data
       #print(prominent_model)
       if verbose:
         pbar.add(1)
     else:
       prominent_model_prev = prominent_model
       learning_dict, new_point_is_exciting = evaluate_prominent(new_data, learning_dict, sigma_r, pp_thr, t, num_particles)
+      full_gt_data = h.concatenate_data((full_gt_data, new_data))
+      contexts = full_gt_data['c']
       if new_point_is_exciting and EM_exists and EM_len == EM_size_limit:
         new_point_is_exciting = False
       if new_point_is_exciting:
@@ -342,7 +345,7 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
         fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate = True)
       else:
         EM_len = 0
-        if 'bg' not in prominent_model:
+        if 'bg' not in prominent_model:	
           num_points_to_dream = t
         else:
           num_points_to_dream = learning_dict[prominent_model]['posteriors'][-1][-1]
@@ -356,8 +359,10 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
         else:
           data_whole = data_dream
         learning_dict = evaluate_non_prominents(data_whole, learning_dict, sigma_r, dream_idx, model_set, num_particles, t, D)
-      
-      update_prominent_model(learning_dict, t)
+      if np.unique(contexts) == 1:
+        fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model_prev, param_is_separate = True)
+      else:
+        update_prominent_model(learning_dict, t)
       prominent_model = learning_dict['prominent_models'][-1]
       #print(prominent_model)
       if prominent_model != prominent_model_prev:
