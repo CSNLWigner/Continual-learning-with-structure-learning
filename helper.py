@@ -33,7 +33,7 @@ def index_of_model_change(mllhs, model_id=0, never_result=np.nan):
     else:
         id_change = np.nonzero(ids_of_best_model == model_id)[0][0]
     return id_change
-    
+
 
 def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
     '''Given a list of mllhs, computes first time index where best model is model_id'''
@@ -48,6 +48,13 @@ def index_of_model_change_modified(mllhs, model_id=0, never_result=np.nan):
             id_change = len(a) - np.argmin(np.flip(a))
     return id_change
 
+def model_change_time(learning_dict, desired_model):
+    try:
+        switch_time = learning_dict['prominent_models'].index(desired_model)
+    except ValueError:
+        switch_time = np.nan
+    return switch_time
+
 ########################################### Functions that take data dictionaries as input ###########################################
 
 def concatenate_data(data1, data2):
@@ -59,6 +66,28 @@ def concatenate_data(data1, data2):
         data_out[key] = np.concatenate((data1[key], data2[key]))
     return data_out
 
+def split_data(data, split):
+    '''
+    Split a data dictionary into two data dictionaries.
+    '''
+    data1 = {}
+    data2 = {}
+    for key in data.keys():
+        data1[key] = data[key][:split]
+        data2[key] = data[key][split:]
+    return data1, data2
+
+def split_data_by_index(data, indices):
+    '''
+    Split a data dictionary into two data dictionaries.
+    '''
+    data1 = {}
+    data2 = {}
+    for key in data.keys():
+        data1[key] = data[key][indices]
+        data2[key] = np.delete(data[key], indices, 0)
+    return data1, data2
+
 def reorder_data(data, indices):
     '''
     Reorder datapoints in a data dictionary by indices specified by a numpy array.
@@ -68,7 +97,7 @@ def reorder_data(data, indices):
         data_out[key] = data[key][indices]
     return data_out
 
-def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, colorbar=True, ticks=True, marker='o'):
+def plot_data(data, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, colorbar=True, ticks=True, marker='o', figsize=None):
     '''
     Create a plot from a data dictionary.
     '''
@@ -76,6 +105,9 @@ def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, colorba
     plt.gca().set_aspect('equal')
     plt.xlim([-limit,limit])
     plt.ylim([-limit,limit])
+    if show_axes:
+        plt.axvline(x = 0, color = 'k', linestyle = '--')
+        plt.axhline(y = 0, color = 'k', linestyle = '--')
     if axislabels:
         plt.xlabel('z_1')
         plt.ylabel('z_2')
@@ -99,8 +131,118 @@ def plot_data(data, labels=False, limit=1.75, climit=1, axislabels=True, colorba
                 textcoords='offset points', ha='right', va='bottom',
                 bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
                 arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
 
-            
+def plot_data_subplots(data_list, labels=False, limit=1.75, climit=1, show_axes=True, axislabels=True, ticks=True, marker='o', figsize=None, titles=None):
+    '''
+    Create a plot from a data dictionary.
+    '''
+    for i in range(len(data_list)):
+        plt.subplot(1, len(data_list), i + 1)
+        plt.scatter(*data_list[i]['z'].T,c=data_list[i]['r'], marker=marker, vmin=-climit, vmax=climit)
+        plt.gca().set_aspect('equal')
+        plt.xlim([-limit,limit])
+        plt.ylim([-limit,limit])
+        if show_axes:
+            plt.axvline(x = 0, color = 'k', linestyle = '--')
+            plt.axhline(y = 0, color = 'k', linestyle = '--')
+        if titles is not None:
+            plt.title(titles[i])
+        if i==0:
+            if axislabels:
+                plt.xlabel('z_1')
+                plt.ylabel('z_2')
+            if labels:
+                labels = ['{0}'.format(i) for i in range(data_list[i]['z'].shape[0])]
+                for label, x, y in zip(labels, data_list[i]['z'][:, 0], data_list[i]['z'][:, 1]):
+                    plt.annotate(
+                        label,
+                        xy=(x, y), xytext=(-20, 20),
+                        textcoords='offset points', ha='right', va='bottom',
+                        bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                        arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+        if not ticks:
+            plt.tick_params(
+            axis='both',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            labelbottom=False,
+            left=False,
+            labelleft=False) # labels along the bottom edge are off
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
+
+def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, indicate_best_model=True, markersize=10, data=None, ctx_markers=False):
+    '''
+    Plot the mean mmllh curves for a set of models. Option to indicate the best model at each time step.
+    '''
+    plt.figure()
+    x = np.arange(1, T + 1)
+    for model in model_set:
+        mmllh = learning_dict[model]['mmllh']
+        color = color_dict['model_' + model]
+        plt.plot(x, np.mean(np.log(mmllh), axis = 0), label = model, linewidth = 4, color = color)
+    if data is not None:
+        context = np.unique(data['c'], return_inverse=True)
+        for t in range(T):
+            if t > 0 and context[1][t] != context[1][t-1]:
+                plt.axvline(t + 1, color = 'lightgray', linestyle = '--')
+        if ctx_markers:
+            ctx_color_dict = {'context_0': 'darkgray', 'context_1': 'lightgray', 'context_2': 'black'}
+            ylimit = plt.ylim()[0]
+            for t in range(T):
+                plt.plot(t + 1, ylimit, 's', color = ctx_color_dict['context_' + str(context[1][t])], markersize = markersize)
+    if indicate_best_model:
+        for t in range(T):
+            mmllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
+            best_model = model_set[np.argmax(np.mean(mmllh_t, axis = 1))]
+            color = color_dict['model_' + best_model]
+            plt.plot(t + 0.5, 0, 's', color = color, markersize = markersize)
+    plt.xlabel('time')
+    plt.ylabel('log mmllh')
+    plt.legend()
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
+
+def plot_mllh_curves_subpanels(learning_dicts, model_set, T, color_dict, figsize=None, indicate_best_model = True, titles=None, markersize=10, data=None):
+    '''
+    Plot mean mllh curves for a set of models in subplots for different learners.
+    Input is a list of result dictionaries. 
+    Option to indicate the best model at each time step.
+    '''
+    plt.figure()
+    x = np.arange(1, T + 1)
+    for i, learning_dict in enumerate(learning_dicts):
+        plt.subplot(1, len(learning_dicts), i + 1)
+        for model in model_set:
+            mllh = learning_dict[model]['mmllh']
+            color = color_dict['model_' + model]
+            plt.plot(x, np.mean(np.log(mllh), axis = 0), label = model, linewidth = 4, color = color)
+        if data is not None:
+            context = np.unique(data['c'], return_inverse=True)
+            for t in range(T):
+                if t > 0 and context[1][t] != context[1][t-1]:
+                    plt.axvline(t + 0.5, color = 'lightgray', linestyle = '--')
+        if indicate_best_model:
+            for t in range(T):
+                mllh_t = np.array([learning_dict[model]['mmllh'][:,t] for model in model_set])
+                best_model = model_set[np.argmax(np.mean(mllh_t, axis = 1))]
+                color = color_dict['model_' + best_model]
+                plt.plot(t + 1, 0, 's', color = color, markersize = markersize)
+        if titles is not None:
+            plt.title(titles[i])
+        #Labels
+        if i == 0:
+            plt.legend()
+            plt.xlabel('time')
+            plt.ylabel('log mllh')
+    if figsize is not None:
+        plt.gcf().set_size_inches(figsize)
+
 ########################################### Functions associated with 1x2D model ###########################################
 
 
