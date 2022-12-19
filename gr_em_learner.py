@@ -359,7 +359,7 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
         else:
           data_whole = data_dream
         learning_dict = evaluate_non_prominents(data_whole, learning_dict, sigma_r, dream_idx, model_set, num_particles, t, D)
-      if np.unique(contexts) == 1:
+      if len(np.unique(contexts)) == 1:
         fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model_prev, param_is_separate = True)
       else:
         update_prominent_model(learning_dict, t)
