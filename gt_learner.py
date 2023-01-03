@@ -47,12 +47,20 @@ def GT_learner(data, sigma_r, model_set, num_particles = 256):
       else:
         mmllh_list, _ = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full", marginalize = True, ret_all_mmllhs = True)
         learning_dict[model]['mmllh'][0, :] = mmllh_list
-
+  contexts = data['c']
   for t in range(1, T + 1):
-    learning_dict, winner_model = who_is_the_winner(model_set, t, learning_dict)
-    fill_learning_dict(learning_dict, t, 'prominent_models', winner_model, param_is_separate = True)
+    if t == 1:
+      learning_dict, winner_model = who_is_the_winner(model_set, t, learning_dict)
+      fill_learning_dict(learning_dict, t, 'prominent_models', winner_model, param_is_separate = True)
+    else:
+      winner_prev = winner_model
+      first_t_context = contexts[:t]
+      if len(np.unique(first_t_context)) == 1:
+        fill_learning_dict(learning_dict, t, 'prominent_models', winner_prev, param_is_separate = True)
+      else:
+        learning_dict, winner_model = who_is_the_winner(model_set, t, learning_dict)
+        fill_learning_dict(learning_dict, t, 'prominent_models', winner_model, param_is_separate = True)
   return learning_dict  
-
 
 
 
