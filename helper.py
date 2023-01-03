@@ -189,7 +189,7 @@ def plot_mmllh_curves(learning_dict, model_set, T, color_dict, figsize=None, ind
         context = np.unique(data['c'], return_inverse=True)
         for t in range(T):
             if t > 0 and context[1][t] != context[1][t-1]:
-                plt.axvline(t + 1, color = 'lightgray', linestyle = '--')
+                plt.axvline(t, color = 'lightgray', linestyle = '--')
         if ctx_markers:
             ctx_color_dict = {'context_0': 'darkgray', 'context_1': 'lightgray', 'context_2': 'black'}
             ylimit = plt.ylim()[0]
