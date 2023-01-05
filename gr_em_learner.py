@@ -57,22 +57,38 @@ def evaluate_all_full(data, learning_dict, sigma_r, model_set, num_particles, Si
   for model in model_set:
     complexity = task_complexity(model)
     if complexity == '1_task':
-      mmllh, posterior = f.calc_mmllh_1task(data, sigma_r, model, evaluation = "full")
+      mmllh, _ = f.calc_mmllh_1task(data, sigma_r, model, evaluation = "full")
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
+      if model == '1x2D':
+          posterior = ([0, 0], Sigma_0_2task_def)
+      else:
+          posterior = (0, Sigma_0_1task_def)
       fill_learning_dict(learning_dict, T, 'posteriors', posterior, model)
     elif complexity == '2_task':
       if 'bg' in model:
-        mmllhs, posterior, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
+        mmllhs, _, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
         mmllh = mmllhs[0] * mmllhs[1]
         fill_learning_dict(learning_dict, T, 'contexts', contexts, model)
         fill_learning_dict(learning_dict, T, 'mmllhs', mmllhs, model)
       else:
-        mmllh, posterior = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
+        mmllh, _ = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
+      if '1D' in model:
+          normalized_weights = [1.]
+          mus = [[0., 0.]]
+          Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
+          data_point_counter_list = [[0, 0]]
+          posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
+      else:
+          normalized_weights = [1.]
+          mus = [[np.array([0., 0.]), np.array([0., 0.])]]
+          Sigmas = [[Sigma_0_2task_def, Sigma_0_2task_def]]
+          data_point_counter_list = [[0, 0]]
+          posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
       fill_learning_dict(learning_dict, T, 'posteriors', posterior, model)
   learning_dict, winner_model = who_is_the_winner(model_set, T, learning_dict)
-  fill_learning_dict(learning_dict, T, 'alarms', 0, param_is_separate = True)
-  fill_learning_dict(learning_dict, T, 'EM_lens', 0, param_is_separate = True)
+  fill_learning_dict(learning_dict, T, 'alarms', 1, param_is_separate = True)
+  fill_learning_dict(learning_dict, T, 'EM_lens', 1, param_is_separate = True)
   fill_learning_dict(learning_dict, T, 'prominent_models', winner_model, param_is_separate = True)
   return learning_dict      
       
@@ -303,7 +319,7 @@ def GR_EM_learner_korabbi(data, sigma_r, model_set, num_particles = 256, D = 10,
   return learning_dict
 
 
-def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False):
+def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False):
   T = size_of_data(data)
   data_gen = data_generator(data) # Python generator for iterating through data points 
   learning_dict = init_learning_dict(model_set, D, T)
@@ -353,7 +369,7 @@ def GR_EM_learner(data, sigma_r, model_set, task_angles_in_data, num_particles =
 
       # GR D times
       for dream_idx in range(D):
-        data_dream = h.GR(learning_dict, task_angles_in_data, how_many = num_points_to_dream)
+        data_dream = h.GR(learning_dict, how_many = num_points_to_dream)
         if EM_exists:
           data_whole = h.concatenate_data([data_dream, EM])
         else:
