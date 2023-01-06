@@ -332,6 +332,8 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
       learning_dict = evaluate_all_full(new_data, learning_dict, sigma_r, model_set, num_particles)
       prominent_model = learning_dict['prominent_models'][-1]
       full_gt_data = new_data
+      EM = deepcopy(new_data)
+      EM_exists = True
       #print(prominent_model)
       if verbose:
         pbar.add(1)
@@ -369,9 +371,13 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
 
       # GR D times
       for dream_idx in range(D):
-        data_dream = h.GR(learning_dict, how_many = num_points_to_dream)
+        if num_points_to_dream:
+            data_dream = h.GR(learning_dict, how_many = num_points_to_dream)
         if EM_exists:
-          data_whole = h.concatenate_data([data_dream, EM])
+          if num_points_to_dream:
+              data_whole = h.concatenate_data([data_dream, EM])
+          else:
+              data_whole = EM
         else:
           data_whole = data_dream
         learning_dict = evaluate_non_prominents(data_whole, learning_dict, sigma_r, dream_idx, model_set, num_particles, t, D)
