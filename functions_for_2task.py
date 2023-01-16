@@ -6,7 +6,9 @@ from scipy.stats import multivariate_normal
 import pandas as pd
 from tensorflow_probability import distributions as tfd
 import tensorflow_probability as tfp
-
+Sigma_0_1task_def = 1.
+Sigma_0_2task_def = np.array([[1., 0.],
+                              [0., 1.]])
 
 
 def calc_mmllh_1task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", posterior = None, mmllh_prev = None, ret_all_mmllhs = False):
@@ -628,7 +630,7 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   mmllhs = dict(cx=mmllh_x, cy=mmllh_y)
   mus = dict(cx=mu_x, cy=mu_y)
   sigmas = dict(cx=sigma_x, cy=sigma_y)
-  Ts = dict(cx=sigma_x, cy=sigma_y)
+  Ts = dict(cx=Tx, cy=Ty)
   return mmllhs, mus, sigmas, Ts, conts
 
 
@@ -925,30 +927,25 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mmllh_2x2D_with_background(data, sigma_r, Sigma_0)
     return mmllhs, posterior, new_contexts
   elif len(prev_contexts) == 1:  # T1 or T2 is zero in this case
-    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
-    if len(mmllhs_prev) == 2:
-      assert 1 in mmllhs_prev, "in case of 1 prev context, one of the prev mmllhs should be 1."
-    mus_prev,\
-    sigmas_prev,\
+    mus_prev, \
+    sigmas_prev, \
     Ts_prev = posterior
-    sorted_zip_accord_to_T = sorted(zip(mus_prev, sigmas_prev, Ts_prev), key = lambda x: x[-1])
-    mus_prev, sigmas_prev, Ts_prev = list(zip(*sorted_zip_accord_to_T))
-    # 0 is the first element in Ts_prev from now on
-    mmllhs_prev_copy = list(mmllhs_prev).copy()  # maybe one of the elements in mmllhs_prev_copy is 1., but giving a one-element list is also acceptable
-    if 1 in mmllhs_prev_copy:
-      mmllhs_prev_copy.remove(1)
-    mmllh_prev = mmllhs_prev_copy[0]
-    prev_context = prev_contexts[0]
+    for context, mmllh in mmllhs_prev.items():
+      if mmllh != 1.:
+        mmllh_prev = mmllh
+        prev_context = context
+        mu_prev = mus_prev[prev_context]
+        sigma_prev = sigmas_prev[prev_context]
+        T_prev = Ts_prev[prev_context]
+
     data_with_prev_cont = filter_based_on_context(data, prev_context)
     if data_with_prev_cont is not None:
-      T1 = Ts_prev[-1] + len(data_with_prev_cont['z'])
-      post_prev = (mus_prev[1], sigmas_prev[1])
+      T1 = T_prev + len(data_with_prev_cont['z'])
+      post_prev = (mu_prev, sigma_prev)
       mmllh_1_new, post1, _ = calc_mmllh_1task(data_with_prev_cont, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllh_prev)
       mu_1_new, sigma_1_new = post1
     else:
-      mu_1_new, sigma_1_new, T1 = (mus_prev[1], sigmas_prev[1], Ts_prev[1])
-      T1 = Ts_prev[-1]
-      mmllh_1_new = mmllh_prev
+      mmllh_1_new, mu_1_new, sigma_1_new, T1 = (mmllh_prev, mu_prev, sigma_prev, T_prev)
 
     other_part_of_data = exclude_context(data, prev_context)
     if other_part_of_data is not None:
@@ -957,59 +954,52 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
       mmllh_2_new, post2 = calc_mmllh_1task(other_part_of_data, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "full")
       mu_2_new, sigma_2_new = post2
     else:
-      mu_2_new, sigma_2_new = (mus_prev[0], sigmas_prev[0])
-      T2 = 0
-      mmllh_2_new = 1.
-      new_context = ''
-    post_ret = [[mu_1_new, mu_2_new], [sigma_1_new, sigma_2_new], [T1, T2]]
+      mmllh_2_new, mu_2_new, sigma_2_new, T2 = (1., [0, 0], Sigma_0_2task_def, 0)
+      new_context = 'unknown'
+    mmllhs = {f'{prev_context}': mmllh_1_new, f'{new_context}': mmllh_2_new}
+    mus = {f'{prev_context}': mu_1_new, f'{new_context}': mu_2_new}
+    sigmas = {f'{prev_context}': sigma_1_new, f'{new_context}': sigma_2_new}
+    Ts = {f'{prev_context}': T1, f'{new_context}': T2}
+    post_ret = [mus, sigmas, Ts]
     cont_list = [prev_context, new_context]
-    if '' in cont_list:
-      cont_list.remove('')
+    if 'unknown' in cont_list:
+      cont_list.remove('unknown')
     mmllh_new = mmllh_1_new * mmllh_2_new
-    pred_prob = mmllh_new / mmllh_previous
-    return [mmllh_1_new, mmllh_2_new], post_ret, cont_list, pred_prob
+    pred_prob = mmllh_new / mmllh_prev
+    return mmllhs, post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
-    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
+    mmllh_previous = mmllhs_prev[prev_contexts[0]] * mmllhs_prev[prev_contexts[1]]
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
-    mmllhs = []
-    mus = []
-    sigmas = []
-    Ts = []
+    mmllhs = dict()
+    mus = dict()
+    sigmas = dict()
+    Ts = dict()
     for i, prev_context in enumerate(prev_contexts):
       data_filtered = filter_based_on_context(data, prev_context)
       if data_filtered is not None:
-        post_prev = (mus_prev[i], sigmas_prev[i])
-        mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[i])
+        post_prev = (mus_prev[prev_context], sigmas_prev[prev_context])
+        mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "1x2D", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[prev_context])
         mu_new, sigma_new = post_
-        mmllhs.append(mmllh_new)
-        mus.append(mu_new)
-        sigmas.append(sigma_new)
-        Ts.append(Ts_prev[i] + len(data_filtered['z']))
+        mmllhs[prev_context] = mmllh_new
+        mus[prev_context] = mu_new
+        sigmas[prev_context] = sigma_new
+        Ts[prev_context] = Ts_prev[prev_context] + len(data_filtered['z'])
       else:
-        mmllhs.append(mmllhs_prev[i])
-        mus.append(mus_prev[i])
-        sigmas.append(sigmas_prev[i])
-        Ts.append(Ts_prev[i])
+        mmllhs[prev_context] = mmllhs_prev[prev_context]
+        mus[prev_context] = mus_prev[prev_context]
+        sigmas[prev_context] = sigmas_prev[prev_context]
+        Ts[prev_context] = Ts_prev[prev_context]
     post_ret = [mus, sigmas, Ts]
-    mmllh_new = mmllhs[0] * mmllhs[1]
+    mmllh_new = mmllhs[prev_contexts[0]] * mmllhs[prev_contexts[1]]
     pred_prob = mmllh_new / mmllh_previous
     return mmllhs, post_ret, prev_contexts, pred_prob
-      
-  
-  
-
-      
-  
-  
 
       
 def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0):
-  '''
-  len(prev_contexts) == 2  --> prev_contexts should coincide with the distinct contexts in data
-  '''
+
   if len(data['z']) == 0:
     return mmllhs_prev, posterior, prev_contexts
   if len(prev_contexts) == 0:  # there wasn't any context before, full evaluation
@@ -1017,36 +1007,27 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mmllh_2x1D_with_background(data, sigma_r, Sigma_0)
     return mmllhs, posterior, new_contexts
   elif len(prev_contexts) == 1:  # T1 or T2 is zero in this case
-    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
-    if len(mmllhs_prev) == 2:
-      assert 1 in mmllhs_prev, "in case of 1 prev context, one of the prev mmllhs should be 1."
-    mus_prev,\
-    sigmas_prev,\
+    mus_prev, \
+    sigmas_prev, \
     Ts_prev = posterior
-    sorted_zip_accord_to_T = sorted(zip(mus_prev, sigmas_prev, Ts_prev), key = lambda x: x[-1])
-    mus_prev, sigmas_prev, Ts_prev = list(zip(*sorted_zip_accord_to_T))
-    # 0 is the first element in Ts_prev from now on
-    mmllhs_prev_copy = list(mmllhs_prev).copy()  # maybe one of the elements in mmllhs_prev_copy is 1., but giving a one-element list is also acceptable
-    if 1 in mmllhs_prev_copy:
-      mmllhs_prev_copy.remove(1)
-    mmllh_prev = mmllhs_prev_copy[0]
-    prev_context = prev_contexts[0]
-    x_is_the_prev = False
-    if prev_context == '90':
-        x_is_the_prev = True
+    for context, mmllh in mmllhs_prev.items():
+        if mmllh != 1.:
+            mmllh_prev = mmllh
+            prev_context = context
+            mu_prev = mus_prev[prev_context]
+            sigma_prev = sigmas_prev[prev_context]
+            T_prev = Ts_prev[prev_context]
     data_with_prev_cont = filter_based_on_context(data, prev_context)
     if data_with_prev_cont is not None:
-      T1 = Ts_prev[-1] + len(data_with_prev_cont['z'])
-      post_prev = (mus_prev[1], sigmas_prev[1])
+      T1 = T_prev + len(data_with_prev_cont['z'])
+      post_prev = (mu_prev, sigma_prev)
       if prev_context == '0':
         mmllh_1_new, post1, _ = calc_mmllh_1task(data_with_prev_cont, sigma_r, model = "y", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllh_prev)
       elif prev_context == '90':
         mmllh_1_new, post1, _ = calc_mmllh_1task(data_with_prev_cont, sigma_r, model = "x", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllh_prev)
       mu_1_new, sigma_1_new = post1
     else:
-      mu_1_new, sigma_1_new, T1 = (mus_prev[1], sigmas_prev[1], Ts_prev[1])
-      T1 = Ts_prev[-1]
-      mmllh_1_new = mmllh_prev
+      mmllh_1_new, mu_1_new, sigma_1_new, T1 = (mmllh_prev, mu_prev, sigma_prev, T_prev)
 
     other_part_of_data = exclude_context(data, prev_context)
     if other_part_of_data is not None:
@@ -1058,70 +1039,52 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
         mmllh_2_new, post2 = calc_mmllh_1task(other_part_of_data, sigma_r, model = "x", Sigma_0 = Sigma_0, evaluation = "full")
       mu_2_new, sigma_2_new = post2
     else:
-      mu_2_new, sigma_2_new = (mus_prev[0], sigmas_prev[0])
-      T2 = 0
-      mmllh_2_new = 1.
-      new_context = ''
-    if x_is_the_prev:
-        post_ret = [[mu_1_new, mu_2_new], [sigma_1_new, sigma_2_new], [T1, T2]]
-        cont_list = [prev_context, new_context]
-        mmllhs_returned = [mmllh_1_new, mmllh_2_new]
-    else:
-        post_ret = [[mu_2_new, mu_1_new], [sigma_2_new, sigma_1_new], [T2, T1]]
-        cont_list = [new_context, prev_context]
-        mmllhs_returned = [mmllh_2_new, mmllh_1_new]
-    if '' in cont_list:
-      cont_list.remove('')
+      mmllh_2_new, mu_2_new, sigma_2_new, T2 = (1., 0, Sigma_0_1task_def, 0)
+      new_context = 'unknown'
+    mmllhs = {f'{prev_context}':mmllh_1_new, f'{new_context}':mmllh_2_new}
+    mus = {f'{prev_context}':mu_1_new, f'{new_context}':mu_2_new}
+    sigmas = {f'{prev_context}':sigma_1_new, f'{new_context}':sigma_2_new}
+    Ts = {f'{prev_context}':T1, f'{new_context}':T2}
+    post_ret = [mus, sigmas, Ts]
+    cont_list = [prev_context, new_context]
+    if 'unknown' in cont_list:
+      cont_list.remove('unknown')
     mmllh_new = mmllh_1_new * mmllh_2_new
-    pred_prob = mmllh_new / mmllh_previous
-    return mmllhs_returned, post_ret, cont_list, pred_prob
+    pred_prob = mmllh_new / mmllh_prev
+    return mmllhs, post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
-    mmllh_previous = mmllhs_prev[0] * mmllhs_prev[1]
+    mmllh_previous = mmllhs_prev[prev_contexts[0]] * mmllhs_prev[prev_contexts[1]]
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
-    mmllhs = []
-    mus = []
-    sigmas = []
-    Ts = []
+    mmllhs = dict()
+    mus = dict()
+    sigmas = dict()
+    Ts = dict()
     for i, prev_context in enumerate(prev_contexts):
       data_filtered = filter_based_on_context(data, prev_context)
       if data_filtered is not None:
-        post_prev = (mus_prev[i], sigmas_prev[i])
+        post_prev = (mus_prev[prev_context], sigmas_prev[prev_context])
         if prev_context == '0':
-          mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "y", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[i])
+          mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "y", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[prev_context])
         elif prev_context == '90':
-          mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "x", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[i])
+          mmllh_new, post_, _ = calc_mmllh_1task(data_filtered, sigma_r, model = "x", Sigma_0 = Sigma_0, evaluation = "iterative", posterior = post_prev, mmllh_prev = mmllhs_prev[prev_context])
         mu_new, sigma_new = post_
-        mmllhs.append(mmllh_new)
-        mus.append(mu_new)
-        sigmas.append(sigma_new)
-        Ts.append(Ts_prev[i] + len(data_filtered['z']))
+        mmllhs[prev_context] = mmllh_new
+        mus[prev_context] = mu_new
+        sigmas[prev_context] = sigma_new
+        Ts[prev_context] = Ts_prev[prev_context] + len(data_filtered['z'])
       else:
-        mmllhs.append(mmllhs_prev[i])
-        mus.append(mus_prev[i])
-        sigmas.append(sigmas_prev[i])
-        Ts.append(Ts_prev[i])
+        mmllhs[prev_context] = mmllhs_prev[prev_context]
+        mus[prev_context] = mus_prev[prev_context]
+        sigmas[prev_context] = sigmas_prev[prev_context]
+        Ts[prev_context] = Ts_prev[prev_context]
 
     post_ret = [mus, sigmas, Ts]
-    mmllh_new = mmllhs[0] * mmllhs[1]
+    mmllh_new = mmllhs[prev_contexts[0]] * mmllhs[prev_contexts[1]]
     pred_prob = mmllh_new / mmllh_previous
     return mmllhs, post_ret, prev_contexts, pred_prob
-      
-  
-  
-
-      
-  
-  
-
-
-  
-      
-  
-  
-
 
 
 def calc_mmllh_2task(data, sigma_r, model, Sigma_0 = None, evaluation = "full", num_particles = 64, verbose = False, marginalize = True, posterior_prev = None, mmllh_prev = None, mmllhs_prev = None, prev_contexts = None, ret_all_mmllhs = False):

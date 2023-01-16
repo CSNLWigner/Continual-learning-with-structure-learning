@@ -1458,8 +1458,8 @@ def GR(learning_dict, how_many = None):
     data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x1D_bg':
-    Tx = how_many[0]
-    Ty = how_many[1]
+    Tx = how_many['90']
+    Ty = how_many['0']
 
     # dreaming from x
     post_x = tfd.Normal(loc = np.float64(mus[0]), scale=np.float64(Sigmas[0]))
@@ -1480,8 +1480,9 @@ def GR(learning_dict, how_many = None):
     data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x2D_bg':
-    Tx = how_many[0]
-    Ty = how_many[1]
+    contexts = list(how_many.keys())
+    Tx = how_many[contexts[0]]
+    Ty = how_many[contexts[1]]
     
     # dreaming from task1
     post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[0]), covariance_matrix=np.float64(Sigmas[0]))
@@ -1492,9 +1493,9 @@ def GR(learning_dict, how_many = None):
     gammay = np.array(post_y.sample(Ty))
     #angles_y = infer_angles_from_gammas(gammay)
     if Tx:
-        data_dream_x = generate_data_from_gammas(gammax, Tx, [str(task_angles_in_data[0])] * Tx)
+        data_dream_x = generate_data_from_gammas(gammax, Tx, [contexts[0]] * Tx)
     if Ty:
-        data_dream_y = generate_data_from_gammas(gammay, Ty, [str(task_angles_in_data[1])] * Ty)
+        data_dream_y = generate_data_from_gammas(gammay, Ty, [contexts[1]] * Ty)
     data_dream = concatenate_data([data_dream_x, data_dream_y])
 
     return data_dream
