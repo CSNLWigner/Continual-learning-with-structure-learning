@@ -552,7 +552,6 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
   T1 = len(x_indices)
   T2 = len(indices) - T1
   complementer_subset = [item for item in indices if item not in x_indices]
-
   if len(x_indices) > 0:
     zx = z[x_indices]
     rx = r[x_indices]
@@ -564,7 +563,7 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
     mu_x = [0., 0.]
     sigma_x = [[1., 0.], [0., 1.]]
     mmllh_x = 1.
-    cx = ''
+    cx = 'unknown'
 
   if len(complementer_subset) > 0:
     zy = z[complementer_subset]
@@ -577,11 +576,15 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
     mu_y = [0., 0.]
     sigma_y = [[1., 0.], [0., 1.]]
     mmllh_y = 1.
-    cy = ''
+    cy = 'unknown'
   conts = [cx, cy]
-  if '' in conts:
-    conts.remove('')
-  return [mmllh_x, mmllh_y], [mu_x, mu_y], [sigma_x, sigma_y], [T1, T2], conts
+  if 'unknown' in conts:
+    conts.remove('unknown')
+  mmllhs = dict(cx=mmllh_x, cy=mmllh_y)
+  mus = dict(cx=mu_x, cy=mu_y)
+  sigmas = dict(cx=sigma_x, cy=sigma_y)
+  Ts = dict(cx=sigma_x, cy=sigma_y)
+  return mmllhs, mus, sigmas, Ts, conts
 
 def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   z = data['z']
@@ -604,7 +607,7 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
     mmllh_x = 1.
     mu_x = 0.
     sigma_x = 1.
-    cx = ''
+    cx = 'unknown'
     Tx = 0
   if len(complementer_subset) > 0:
     cy = '0'
@@ -614,15 +617,19 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
     Ty = zy.shape[0]
     mmllh_y, mu_y, sigma_y = model_marginal_llh_analytic_posterior_aswell(datay, sigma_r, Sigma_0 = Sigma_0, model = 'y')
   else:
-    cy = ''
+    cy = 'unknown'
     Ty = 0
     mmllh_y = 1.
     mu_y = 0.
     sigma_y = 1.
   conts = [cx, cy]
-  if '' in conts:
-    conts.remove('')
-  return [mmllh_x, mmllh_y], [mu_x, mu_y], [sigma_x, sigma_y], [Tx, Ty], conts
+  if 'unknown' in conts:
+    conts.remove('unknown')
+  mmllhs = dict(cx=mmllh_x, cy=mmllh_y)
+  mus = dict(cx=mu_x, cy=mu_y)
+  sigmas = dict(cx=sigma_x, cy=sigma_y)
+  Ts = dict(cx=sigma_x, cy=sigma_y)
+  return mmllhs, mus, sigmas, Ts, conts
 
 
 
