@@ -1258,10 +1258,11 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
     return data_dream
   elif model == '1x2D':
+    global FIRST_CONTEXT
     post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
     gamma_out = np.array(post.sample(how_many))
-    angles = infer_angles_from_gammas(gamma_out)
-    data_dream = generate_data_from_gammas(gamma_out, how_many, angles)
+    # angles = infer_angles_from_gammas(gamma_out)
+    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [FIRST_CONTEXT])
     return data_dream
   elif model == '2x1D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1304,7 +1305,7 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     post_x = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_x)
     
     gammax = np.array(post_x.sample(Tx))
-    angles_x = infer_angles_from_gammas(gammax)
+    # angles_x = infer_angles_from_gammas(gammax)
 
     #kulon y-ra
     components_y = []
@@ -1313,7 +1314,7 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
       
     gammay = np.array(post_y.sample(Ty))
-    angles_y = infer_angles_from_gammas(gammay)
+    # angles_y = infer_angles_from_gammas(gammay)
     data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
     data_dream_y = generate_data_from_gammas(gammay, Ty, angles_y)
     data_dream = concatenate_data(data_dream_x, data_dream_y)
@@ -1357,7 +1358,7 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
 
-def GR(learning_dict, task_angles_in_data, how_many = None):
+def GR(learning_dict, how_many = None):
   '''
   structure of posterior:
       model x, y, 1x2D: [mu, Sigma]
@@ -1395,10 +1396,11 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
     data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
     return data_dream
   elif model == '1x2D':
+    global FIRST_CONTEXT
     post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
     gamma_out = np.array(post.sample(how_many))
-    #angles = infer_angles_from_gammas(gamma_out)
-    data_dream = generate_data_from_gammas(gamma_out, how_many, [str(task_angles_in_data[0])] * how_many)
+    # angles = infer_angles_from_gammas(gamma_out)
+    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [FIRST_CONTEXT])
     return data_dream
   elif model == '2x1D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1489,8 +1491,11 @@ def GR(learning_dict, task_angles_in_data, how_many = None):
     post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[1]), covariance_matrix=np.float64(Sigmas[1]))
     gammay = np.array(post_y.sample(Ty))
     #angles_y = infer_angles_from_gammas(gammay)
-    data_dream_x = generate_data_from_gammas(gammax, Tx, [str(task_angles_in_data[0])] * Tx)
-    data_dream_y = generate_data_from_gammas(gammay, Ty, [str(task_angles_in_data[1])] * Ty)
+    if Tx:
+        data_dream_x = generate_data_from_gammas(gammax, Tx, [str(task_angles_in_data[0])] * Tx)
+    if Ty:
+        data_dream_y = generate_data_from_gammas(gammay, Ty, [str(task_angles_in_data[1])] * Ty)
     data_dream = concatenate_data([data_dream_x, data_dream_y])
+
     return data_dream
 

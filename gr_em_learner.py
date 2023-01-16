@@ -329,6 +329,8 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
   for idx, new_data in enumerate(data_gen):
     t = idx + 1
     if t == 1:  # evaluate all models "fully"
+      global FIRST_CONTEXT
+      FIRST_CONTEXT = new_data['c'][0]
       learning_dict = evaluate_all_full(new_data, learning_dict, sigma_r, model_set, num_particles)
       prominent_model = learning_dict['prominent_models'][-1]
       full_gt_data = new_data
