@@ -67,19 +67,33 @@ def evaluate_all_full(data, learning_dict, sigma_r, model_set, num_particles, Si
     elif complexity == '2_task':
       if 'bg' in model:
         mmllhs, _, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
-        mmllh = mmllhs[0] * mmllhs[1]
+        mmllh = 1.
+        for context in mmllhs:
+          mmllh *= mmllhs[context]
         fill_learning_dict(learning_dict, T, 'contexts', contexts, model)
         fill_learning_dict(learning_dict, T, 'mmllhs', mmllhs, model)
       else:
         mmllh, _ = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
       if '1D' in model:
-          normalized_weights = [1.]
-          mus = [[0., 0.]]
-          Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
-          data_point_counter_list = [[0, 0]]
-          posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
+        if 'bg' in model:
+            mus = {'0': 0., '90': 0.}
+            Sigmas = {'0': Sigma_0_1task_def, '90': Sigma_0_1task_def}
+            data_point_counter_list = {'0': 0, '90': 0}
+            posterior = [mus, Sigmas, data_point_counter_list]
+        else:
+            normalized_weights = [1.]
+            mus = [[0., 0.]]
+            Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
+            data_point_counter_list = [[0, 0]]
+            posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
       else:
+        if 'bg' in model:
+          mus = {'0': 0., '90': 0.}
+          Sigmas = {'0': Sigma_0_2task_def, '90': Sigma_0_2task_def}
+          data_point_counter_list = {'0': 0, '90': 0}
+          posterior = [mus, Sigmas, data_point_counter_list]
+        else:
           normalized_weights = [1.]
           mus = [[np.array([0., 0.]), np.array([0., 0.])]]
           Sigmas = [[Sigma_0_2task_def, Sigma_0_2task_def]]
@@ -117,17 +131,20 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
     if 'bg' in prom_model:
       prev_contexts = learning_dict[prom_model]['contexts'][-1]
       mmllhs_prev = learning_dict[prom_model]['mmllhs'][-1]
-      mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''), 
-                      evaluation = "iterative", 
-                      marginalize = False, 
-                      posterior_prev = prev_posterior, 
-                      mmllhs_prev = mmllhs_prev, 
+      mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''),
+                      evaluation = "iterative",
+                      marginalize = False,
+                      posterior_prev = prev_posterior,
+                      mmllhs_prev = mmllhs_prev,
                       prev_contexts = prev_contexts)
       if pp < pp_thr:
         alarm = 1
       else:
         alarm = 0
-      learning_dict[prom_model]['mmllh'][:, t - 1] = mmllhs_new[0] * mmllhs_new[1]
+      mmllh_acc = 1.
+      for context in mmllhs_new:
+        mmllh_acc *= mmllhs_new[context]
+      learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
       if alarm:
         fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
         fill_learning_dict(learning_dict, t, 'contexts', contexts_new, prom_model)
@@ -135,7 +152,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
       else:
         fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_prev, prom_model)
         fill_learning_dict(learning_dict, t, 'contexts', prev_contexts, prom_model)
-        fill_learning_dict(learning_dict, t, 'posteriors', prev_posterior, prom_model)        
+        fill_learning_dict(learning_dict, t, 'posteriors', prev_posterior, prom_model)
     else:
       mmllh_prev = learning_dict[prom_model]['mmllh'][0, t - 2]
       mmllh_new, posterior_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model, 
@@ -177,7 +194,10 @@ def evaluate_non_prominents(data, learning_dict, sigma_r, dream_idx, model_set, 
     elif complexity == '2_task':
       if 'bg' in model:
         mmllhs, posterior, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
-        mmllh = mmllhs[0] * mmllhs[1]
+        mmllh_acc = 1.
+        for context in mmllhs:
+          mmllh_acc *= mmllhs[context]
+        mmllh = mmllh_acc
         if dream_idx == D - 1:  # last dream is retained
           fill_learning_dict(learning_dict, t, 'contexts', contexts, model)
           fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs, model)
