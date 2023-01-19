@@ -1358,7 +1358,8 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     data_dream = concatenate_data(data_dream_x, data_dream_y)
     return data_dream
 
-def GR(learning_dict, how_many = None):
+
+def GR(learning_dict, how_many = None, first_context = None):
   '''
   structure of posterior:
       model x, y, 1x2D: [mu, Sigma]
@@ -1396,11 +1397,10 @@ def GR(learning_dict, how_many = None):
     data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
     return data_dream
   elif model == '1x2D':
-    global FIRST_CONTEXT
     post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
     gamma_out = np.array(post.sample(how_many))
     # angles = infer_angles_from_gammas(gamma_out)
-    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [FIRST_CONTEXT])
+    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [first_context])
     return data_dream
   elif model == '2x1D':
     bernoulli = tfd.Categorical(probs = normalized_weights)
@@ -1462,14 +1462,14 @@ def GR(learning_dict, how_many = None):
     Ty = how_many['0']
 
     # dreaming from x
-    post_x = tfd.Normal(loc = np.float64(mus[0]), scale=np.float64(Sigmas[0]))
+    post_x = tfd.Normal(loc = np.float64(mus['90']), scale=np.float64(Sigmas['90']))
       
     gamma_ = np.array(post_x.sample(Tx))
     gammax = np.zeros((gamma_.shape[0], 2))
     gammax[:, 1] = gamma_
 
     # dreaming from y
-    post_y = tfd.Normal(loc = np.float64(mus[1]), scale=np.float64(Sigmas[1]))
+    post_y = tfd.Normal(loc = np.float64(mus['0']), scale=np.float64(Sigmas['0']))
      
     gamma_ = np.array(post_y.sample(Ty))
     gammay = np.zeros((gamma_.shape[0], 2))
@@ -1483,13 +1483,13 @@ def GR(learning_dict, how_many = None):
     contexts = list(how_many.keys())
     Tx = how_many[contexts[0]]
     Ty = how_many[contexts[1]]
-    
+    print(Tx, Ty)
     # dreaming from task1
-    post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[0]), covariance_matrix=np.float64(Sigmas[0]))
+    post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[contexts[0]]), covariance_matrix=np.float64(Sigmas[contexts[0]]))
     gammax = np.array(post_x.sample(Tx))
     #angles_x = infer_angles_from_gammas(gammax)
     # dreaming from task2
-    post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[1]), covariance_matrix=np.float64(Sigmas[1]))
+    post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[contexts[1]]), covariance_matrix=np.float64(Sigmas[contexts[1]]))
     gammay = np.array(post_y.sample(Ty))
     #angles_y = infer_angles_from_gammas(gammay)
     if Tx:

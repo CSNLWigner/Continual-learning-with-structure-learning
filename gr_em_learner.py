@@ -54,6 +54,7 @@ def evaluate_all_full(data, learning_dict, sigma_r, model_set, num_particles, Si
     Sigma_0_2task = Sigma_0_2task_def
 
   T = size_of_data(data)
+  context = data['c'][0] # LETS ASSUME, WE HAVE 1 DATA POINT
   for model in model_set:
     complexity = task_complexity(model)
     if complexity == '1_task':
@@ -77,9 +78,9 @@ def evaluate_all_full(data, learning_dict, sigma_r, model_set, num_particles, Si
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
       if '1D' in model:
         if 'bg' in model:
-            mus = {'0': 0., '90': 0.}
-            Sigmas = {'0': Sigma_0_1task_def, '90': Sigma_0_1task_def}
-            data_point_counter_list = {'0': 0, '90': 0}
+            mus = {context: 0., 'unknown': 0.}
+            Sigmas = {context: Sigma_0_1task_def, 'unknown': Sigma_0_1task_def}
+            data_point_counter_list = {context: 0, 'unknown': 0}
             posterior = [mus, Sigmas, data_point_counter_list]
         else:
             normalized_weights = [1.]
@@ -89,9 +90,9 @@ def evaluate_all_full(data, learning_dict, sigma_r, model_set, num_particles, Si
             posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
       else:
         if 'bg' in model:
-          mus = {'0': 0., '90': 0.}
-          Sigmas = {'0': Sigma_0_2task_def, '90': Sigma_0_2task_def}
-          data_point_counter_list = {'0': 0, '90': 0}
+          mus = {context: 0., 'unknown': 0.}
+          Sigmas = {context: Sigma_0_2task_def, 'unknown': Sigma_0_2task_def}
+          data_point_counter_list = {context: 0, 'unknown': 0}
           posterior = [mus, Sigmas, data_point_counter_list]
         else:
           normalized_weights = [1.]
@@ -349,7 +350,6 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
   for idx, new_data in enumerate(data_gen):
     t = idx + 1
     if t == 1:  # evaluate all models "fully"
-      global FIRST_CONTEXT
       FIRST_CONTEXT = new_data['c'][0]
       learning_dict = evaluate_all_full(new_data, learning_dict, sigma_r, model_set, num_particles)
       prominent_model = learning_dict['prominent_models'][-1]
@@ -395,7 +395,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
       # GR D times
       for dream_idx in range(D):
         if num_points_to_dream:
-            data_dream = h.GR(learning_dict, how_many = num_points_to_dream)
+            data_dream = h.GR(learning_dict, how_many = num_points_to_dream, first_context = FIRST_CONTEXT)
         if EM_exists:
           if num_points_to_dream:
               data_whole = h.concatenate_data([data_dream, EM])

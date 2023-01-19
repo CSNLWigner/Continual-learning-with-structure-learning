@@ -582,10 +582,10 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
   conts = [cx, cy]
   if 'unknown' in conts:
     conts.remove('unknown')
-  mmllhs = dict(cx=mmllh_x, cy=mmllh_y)
-  mus = dict(cx=mu_x, cy=mu_y)
-  sigmas = dict(cx=sigma_x, cy=sigma_y)
-  Ts = dict(cx=sigma_x, cy=sigma_y)
+  mmllhs = {f'{cx}': mmllh_x, f'{cy}': mmllh_y}
+  mus = {f'{cx}': mu_x, f'{cy}': mu_y}
+  sigmas = {f'{cx}': sigma_x, f'{cy}': sigma_y}
+  Ts = {f'{cx}': sigma_x, f'{cy}': sigma_y}
   return mmllhs, mus, sigmas, Ts, conts
 
 def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
@@ -627,10 +627,10 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   conts = [cx, cy]
   if 'unknown' in conts:
     conts.remove('unknown')
-  mmllhs = dict(cx=mmllh_x, cy=mmllh_y)
-  mus = dict(cx=mu_x, cy=mu_y)
-  sigmas = dict(cx=sigma_x, cy=sigma_y)
-  Ts = dict(cx=Tx, cy=Ty)
+  mmllhs = {f'{cx}': mmllh_x, f'{cy}': mmllh_y}
+  mus = {f'{cx}': mu_x, f'{cy}': mu_y}
+  sigmas = {f'{cx}': sigma_x, f'{cy}': sigma_y}
+  Ts = {f'{cx}': sigma_x, f'{cy}': sigma_y}
   return mmllhs, mus, sigmas, Ts, conts
 
 
@@ -1054,6 +1054,7 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     return mmllhs, post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
+    print(mmllhs_prev)
     mmllh_previous = mmllhs_prev[prev_contexts[0]] * mmllhs_prev[prev_contexts[1]]
     mus_prev,\
     sigmas_prev,\
