@@ -585,7 +585,7 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
   mmllhs = {f'{cx}': mmllh_x, f'{cy}': mmllh_y}
   mus = {f'{cx}': mu_x, f'{cy}': mu_y}
   sigmas = {f'{cx}': sigma_x, f'{cy}': sigma_y}
-  Ts = {f'{cx}': sigma_x, f'{cy}': sigma_y}
+  Ts = {f'{cx}': T1, f'{cy}': T2}
   return mmllhs, mus, sigmas, Ts, conts
 
 def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
@@ -630,7 +630,7 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   mmllhs = {f'{cx}': mmllh_x, f'{cy}': mmllh_y}
   mus = {f'{cx}': mu_x, f'{cy}': mu_y}
   sigmas = {f'{cx}': sigma_x, f'{cy}': sigma_y}
-  Ts = {f'{cx}': sigma_x, f'{cy}': sigma_y}
+  Ts = {f'{cx}': Tx, f'{cy}': Ty}
   return mmllhs, mus, sigmas, Ts, conts
 
 

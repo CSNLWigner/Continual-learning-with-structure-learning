@@ -383,6 +383,8 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
           num_points_to_dream = t - EM_len
         else:
           num_points_to_dream = learning_dict[prominent_model]['posteriors'][-1][-1]
+          print('posterior')
+          print(learning_dict[prominent_model]['posteriors'][-1])
         fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate = True)
       else:
         EM_len = 0
@@ -390,6 +392,8 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
           num_points_to_dream = t
         else:
           num_points_to_dream = learning_dict[prominent_model]['posteriors'][-1][-1]
+          print('posterior')
+          print(learning_dict[prominent_model]['posteriors'][-1])
         fill_learning_dict(learning_dict, t, 'EM_lens', 0, param_is_separate = True)
 
       # GR D times

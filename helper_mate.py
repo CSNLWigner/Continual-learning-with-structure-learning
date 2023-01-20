@@ -1483,7 +1483,9 @@ def GR(learning_dict, how_many = None, first_context = None):
     contexts = list(how_many.keys())
     Tx = how_many[contexts[0]]
     Ty = how_many[contexts[1]]
-    print(Tx, Ty)
+    print(Tx)
+    print('-----')
+    print(Ty)
     # dreaming from task1
     post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[contexts[0]]), covariance_matrix=np.float64(Sigmas[contexts[0]]))
     gammax = np.array(post_x.sample(Tx))
