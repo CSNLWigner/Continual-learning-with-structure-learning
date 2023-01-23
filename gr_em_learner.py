@@ -357,7 +357,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
       EM = deepcopy(new_data)
       EM_exists = True
       EM_len = 1
-      #print(prominent_model)
+      print('prominent: ' + prominent_model)
       if verbose:
         pbar.add(1)
     else:
@@ -413,7 +413,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
       else:
         update_prominent_model(learning_dict, t)
       prominent_model = learning_dict['prominent_models'][-1]
-      #print(prominent_model)
+      print('prominent: ' + prominent_model)
       if prominent_model != prominent_model_prev:
         EM_exists = False
       if verbose:
