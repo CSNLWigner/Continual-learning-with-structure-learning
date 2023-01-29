@@ -1359,7 +1359,7 @@ def dream_data_from_posterior(model, posterior, how_many = None):
     return data_dream
 
 
-def GR(learning_dict, how_many = None, first_context = None):
+def GR(learning_dict, t, how_many = None, first_context = None):
   '''
   structure of posterior:
       model x, y, 1x2D: [mu, Sigma]
@@ -1373,8 +1373,8 @@ def GR(learning_dict, how_many = None, first_context = None):
 
   (in case of model 2x1D and 2x2D parameter how_many is not needed bc of the dreaming method)
   '''
-  model = learning_dict['prominent_models'][-1]
-  posterior = learning_dict[model]['posteriors'][-1]
+  model = learning_dict['prominent_models'][t-2]
+  posterior = learning_dict[model]['posteriors'][t-1]
   if model == 'x' or model == 'y' or model == '1x2D':
     mu, Sigma = posterior
   elif model == "2x1D" or model == "2x2D":
