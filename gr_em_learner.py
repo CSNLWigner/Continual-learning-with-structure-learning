@@ -244,16 +244,16 @@ def init_learning_dict(model_set, D, T):
   return learning_dict
 
 
-def update_prominent_model_korabbi(learning_dict, t, new_point_is_exciting, EM_len, EM_size_limit):
-  winning_model = learning_dict['winning_models'][t - 2]
+def update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary):
+  winning_model = learning_dict['winning_models'][t - 1]
   prev_prominent_model = learning_dict['prominent_models'][t - 2]
-  if new_point_is_exciting and EM_len > EM_size_limit:
+  if new_point_is_exciting and EM_full and model_change_is_necessary:
       fill_learning_dict(learning_dict, t, 'prominent_models', winning_model, param_is_separate = True)
   else:
     fill_learning_dict(learning_dict, t, 'prominent_models', prev_prominent_model, param_is_separate = True)
 
 
-def update_prominent_model(learning_dict, t):
+def update_prominent_model_old(learning_dict, t):
   winning_model = learning_dict['winning_models'][t - 1]
   fill_learning_dict(learning_dict, t, 'prominent_models', winning_model, param_is_separate = True)
 
@@ -358,7 +358,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
         model_change_is_necessary = False
         fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model_prev, param_is_separate = True)
       else:
-        update_prominent_model(learning_dict, t)
+        update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary)
       prominent_model = learning_dict['prominent_models'][t-1]
       print('prominent: ' + prominent_model)
       if model_change_is_necessary:  # EM is cleared
