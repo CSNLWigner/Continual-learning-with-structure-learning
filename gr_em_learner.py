@@ -361,7 +361,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
         update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary)
       prominent_model = learning_dict['prominent_models'][t-1]
       print('prominent: ' + prominent_model)
-      if model_change_is_necessary:  # EM is cleared
+      if new_point_is_exciting and EM_full and model_change_is_necessary:  # EM is cleared
         EM_len = 0
       if verbose:
         pbar.add(1)
