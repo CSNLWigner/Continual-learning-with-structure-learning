@@ -214,9 +214,9 @@ def concatenate_data_old(data1, data2):
 
 
 def concatenate_data(data_iterable):
-  z = np.concatenate([item['z'] for item in data_iterable], 0)
-  r = np.concatenate([np.array(item['r']) for item in data_iterable])
-  c = np.concatenate([np.array(item['c']) for item in data_iterable])
+  z = np.concatenate([item['z'] for item in data_iterable if item['z'] is not None], 0)
+  r = np.concatenate([np.array(item['r']) for item in data_iterable if item['r'] is not None])
+  c = np.concatenate([np.array(item['c']) for item in data_iterable if item['c'] is not None])
   return {'z': z, 'r': r, 'c': list(c)}
 
 
@@ -1458,25 +1458,29 @@ def GR(learning_dict, t, how_many = None, first_context = None):
     data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x1D_bg':
-    Tx = how_many['90']
-    Ty = how_many['0']
+    Tx = how_many.get('90')
+    Ty = how_many.get('0')
+    if Tx:
+        # dreaming from x
+        post_x = tfd.Normal(loc = np.float64(mus['90']), scale=np.float64(Sigmas['90']))
 
-    # dreaming from x
-    post_x = tfd.Normal(loc = np.float64(mus['90']), scale=np.float64(Sigmas['90']))
-      
-    gamma_ = np.array(post_x.sample(Tx))
-    gammax = np.zeros((gamma_.shape[0], 2))
-    gammax[:, 1] = gamma_
+        gamma_ = np.array(post_x.sample(Tx))
+        gammax = np.zeros((gamma_.shape[0], 2))
+        gammax[:, 1] = gamma_
+        data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    else:
+        data_dream_x = {'z':None, 'r':None, 'c':None}
+    if Ty:
+        # dreaming from y
+        post_y = tfd.Normal(loc = np.float64(mus['0']), scale=np.float64(Sigmas['0']))
 
-    # dreaming from y
-    post_y = tfd.Normal(loc = np.float64(mus['0']), scale=np.float64(Sigmas['0']))
-     
-    gamma_ = np.array(post_y.sample(Ty))
-    gammay = np.zeros((gamma_.shape[0], 2))
-    gammay[:, 0] = gamma_
+        gamma_ = np.array(post_y.sample(Ty))
+        gammay = np.zeros((gamma_.shape[0], 2))
+        gammay[:, 0] = gamma_
+        data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    else:
+        data_dream_y = {'z': None, 'r': None, 'c': None}
 
-    data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
-    data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
     data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x2D_bg':

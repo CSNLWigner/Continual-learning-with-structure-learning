@@ -247,7 +247,7 @@ def init_learning_dict(model_set, D, T):
 def update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary):
   winning_model = learning_dict['winning_models'][t - 1]
   prev_prominent_model = learning_dict['prominent_models'][t - 2]
-  if new_point_is_exciting and EM_full and model_change_is_necessary:
+  if new_point_is_exciting and model_change_is_necessary:
       fill_learning_dict(learning_dict, t, 'prominent_models', winning_model, param_is_separate = True)
   else:
     fill_learning_dict(learning_dict, t, 'prominent_models', prev_prominent_model, param_is_separate = True)
@@ -289,7 +289,7 @@ def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_poin
   if new_point_is_exciting and not EM_full:
     rewind_prominent_posterior(learning_dict, t=t, lag=1)
   elif new_point_is_exciting and EM_full:
-    print('EM full, model change is necessary')
+    # print('EM full, model change is necessary')
     if model_change_is_necessary:
       rewind_prominent_posterior(learning_dict, t=t, lag=1)
     else:
@@ -361,7 +361,7 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
         update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary)
       prominent_model = learning_dict['prominent_models'][t-1]
       print('prominent: ' + prominent_model)
-      if new_point_is_exciting and EM_full and model_change_is_necessary:  # EM is cleared
+      if new_point_is_exciting and model_change_is_necessary:  # EM is cleared
         EM_len = 0
       if verbose:
         pbar.add(1)

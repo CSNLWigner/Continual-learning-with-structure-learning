@@ -14,9 +14,9 @@ def init_learning_dict_GT(model_set, T):
       if prop == "mmllh":
         learning_dict[model][prop] = np.zeros((1, T))
       else:
-        learning_dict[model][prop] = []
+        learning_dict[model][prop] = [None] * T
   for prop in separate_props:
-    learning_dict[prop] = []
+    learning_dict[prop] = [None] * T
   return learning_dict
   
 def GT_learner(data, sigma_r, model_set, num_particles = 256):
@@ -34,7 +34,10 @@ def GT_learner(data, sigma_r, model_set, num_particles = 256):
         for idx, new_data in enumerate(data_gen):
           if idx == 0:
             mmllhs, posterior, contexts = f.calc_mmllh_2task(new_data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
-            mmllh_list.append(mmllhs[0] * mmllhs[1])
+            mmllh_acc = 1.
+            for _, mmllh_ in mmllhs.items():
+              mmllh_acc *= mmllh_
+            mmllh_list.append(mmllh_acc)
           else:
             mmllhs, posterior, contexts, _ = f.calc_mmllh_2task(new_data, sigma_r, model.replace('_bg', ''), 
                                                               evaluation = "iterative", 
@@ -42,7 +45,10 @@ def GT_learner(data, sigma_r, model_set, num_particles = 256):
                                                               posterior_prev = posterior, 
                                                               mmllhs_prev = mmllhs, 
                                                               prev_contexts = contexts)
-            mmllh_list.append(mmllhs[0] * mmllhs[1])
+            mmllh_acc = 1.
+            for _, mmllh_ in mmllhs.items():
+              mmllh_acc *= mmllh_
+            mmllh_list.append(mmllh_acc)
         learning_dict[model]['mmllh'][0, :] = mmllh_list
       else:
         mmllh_list, _ = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full", marginalize = True, ret_all_mmllhs = True)
