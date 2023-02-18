@@ -1059,6 +1059,7 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
+    print(posterior)
     mmllhs = dict()
     mus = dict()
     sigmas = dict()

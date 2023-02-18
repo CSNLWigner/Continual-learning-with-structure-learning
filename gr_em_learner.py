@@ -57,6 +57,7 @@ def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0
           mmllh *= mmllhs[context_]
         fill_learning_dict(learning_dict, T, 'contexts', contexts, model)
         fill_learning_dict(learning_dict, T, 'mmllhs', mmllhs, model)
+        fill_learning_dict(learning_dict, T, 'mmllhs_bound_to_posterior', mmllhs, model)
       else:
         mmllh, _ = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
@@ -113,7 +114,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
   elif complexity == '2_task':
     if 'bg' in prom_model:
       prev_contexts = learning_dict[prom_model]['contexts'][t - 2]
-      mmllhs_prev = learning_dict[prom_model]['mmllhs'][t - 2]
+      mmllhs_prev = learning_dict[prom_model]['mmllhs_bound_to_posterior'][t - 2]
       mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''),
                       evaluation = "iterative",
                       marginalize = False,
@@ -130,6 +131,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
       learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
       # new post, etc is filled in by all means and mmllh_test will decide on the need for replacing these values
       fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
+      fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs_new, prom_model)
       fill_learning_dict(learning_dict, t, 'contexts', contexts_new, prom_model)
       fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
     else:
@@ -226,13 +228,14 @@ def data_generator(data):
 
 def init_learning_dict(model_set, D, T):
   learning_dict = dict()
-  model_props = ['mmllh', 'posteriors', 'contexts', 'mmllhs']
+  model_props = ['mmllh', 'posteriors', 'contexts', 'mmllhs', 'mmllhs_bound_to_posterior']
   separate_props = ['prominent_models', 'winning_models', 'alarms', 'EM_lens']
   for model in model_set:
     model_props_copy = deepcopy(model_props)
     if 'bg' not in model and 'contexts' in model_props_copy:
       model_props_copy.remove('contexts')
       model_props_copy.remove('mmllhs')
+      model_props_copy.remove('mmllhs_bound_to_posterior')
     learning_dict[model] = dict()
     for prop in model_props_copy:
       if prop == "mmllh":
@@ -258,10 +261,10 @@ def update_prominent_model_old(learning_dict, t):
   fill_learning_dict(learning_dict, t, 'prominent_models', winning_model, param_is_separate = True)
 
 
-def rewind_prominent_posterior(learning_dict, t, lag):
+def rewind_quantity_related_to_prominent_model(learning_dict, quantity_to_rewind, t, lag):
   prom_model = learning_dict['prominent_models'][t - 2]  # prom model in the (t-1). pos.
-  lagged_posterior = learning_dict[prom_model]['posteriors'][t - 1 - lag]  # post. to which we want to rewind
-  learning_dict[prom_model]['posteriors'][t - 1] = lagged_posterior
+  lagged_quantity = learning_dict[prom_model][quantity_to_rewind][t - 1 - lag]  # post. to which we want to rewind
+  learning_dict[prom_model][quantity_to_rewind][t - 1] = lagged_quantity
 
 
 def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_points_to_dream, D, sigma_r, model_set, num_particles, t, first_context, pp_thr, EM = None):
@@ -287,18 +290,22 @@ def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_poin
                                             t,
                                             D)
   if new_point_is_exciting and not EM_full:
-    rewind_prominent_posterior(learning_dict, t=t, lag=1)
+    rewind_quantity_related_to_prominent_model(learning_dict, 'posterior', t = t, lag = 1)
+    rewind_quantity_related_to_prominent_model(learning_dict, 'contexts', t = t, lag = 1)
+    rewind_quantity_related_to_prominent_model(learning_dict, 'mmllhs_bound_to_posterior', t=t, lag=1)
   elif new_point_is_exciting and EM_full:
     # print('EM full, model change is necessary')
     if model_change_is_necessary:
-      rewind_prominent_posterior(learning_dict, t=t, lag=1)
+      rewind_quantity_related_to_prominent_model(learning_dict, 'posterior', t=t, lag=1)
+      rewind_quantity_related_to_prominent_model(learning_dict, 'contexts', t=t, lag=1)
+      rewind_quantity_related_to_prominent_model(learning_dict, 'mmllhs_bound_to_posterior', t=t, lag=1)
     else:
       # evaluate prominent: t. position, {new_data, EM}
       data = h.concatenate_data([new_data, EM])
       learning_dict, new_point_is_exciting = evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t,
                                                                 num_particles)
   # if new point is not exciting, nothing happens to the prominent posterior, it stays updated by the newest data point
-  return model_change_is_necessary
+  return learning_dict, model_change_is_necessary
 
 def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False):
   T = size_of_data(data)
@@ -334,11 +341,11 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
       # the various branches differ from each other regarding what happens to EM essentially
       # mmllh_test under the hood takes care of dealing with prominent model in the appropriate way
       if EM_exists:
-        model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
+        learning_dict, model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
                                                num_points_to_dream, D, sigma_r,
                                                model_set, num_particles, t, FIRST_CONTEXT, pp_thr, EM=EM)
       else:
-        model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
+        learning_dict, model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
                                                num_points_to_dream, D, sigma_r,
                                                model_set, num_particles, t, FIRST_CONTEXT, pp_thr)
       if new_point_is_exciting:
