@@ -27,7 +27,7 @@ def fill_learning_dict(learning_dict, T, param_name, param_value, model = None, 
   else:
     learning_dict[param_name][T - 1] = param_value
       
-def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0_1task = None, Sigma_0_2task = None, first_point_into_EM = True):
+def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0_1task = None, Sigma_0_2task = None, update_prominent_posterior = False):
   '''
   currently intended for use for one data point, full eval
   evaluates all models in learning_dict
@@ -39,22 +39,24 @@ def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0
 
   T = size_of_data(data)
   context = data['c'][0] # LETS ASSUME, WE HAVE 1 DATA POINT
+  posterior_for_each_model = dict(zip(model_set, [None] * len(model_set)))
   for model in model_set:
+    posterior_for_each_model[model] = {'non_updated': None, 'updated': None}
     complexity = task_complexity(model)
     if complexity == '1_task':
       mmllh, post = f.calc_mmllh_1task(data, sigma_r, model, evaluation = "full")
+      posterior_for_each_model[model]['updated'] = post
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
-      if first_point_into_EM:
-        if model == '1x2D':
-            posterior = ([0, 0], Sigma_0_2task_def)
-        else:
-            posterior = (0, Sigma_0_1task_def)
+
+      if model == '1x2D':
+          posterior = ([0, 0], Sigma_0_2task_def)
       else:
-        posterior = post
-      fill_learning_dict(learning_dict, T, 'posteriors', posterior, model)
+          posterior = (0, Sigma_0_1task_def)
+      posterior_for_each_model[model]['non_updated'] = posterior
     elif complexity == '2_task':
       if 'bg' in model:
         mmllhs, post, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
+        posterior_for_each_model[model]['updated'] = post
         mmllh = 1.
         for context_ in mmllhs:
           mmllh *= mmllhs[context_]
@@ -63,48 +65,45 @@ def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0
         fill_learning_dict(learning_dict, T, 'mmllhs_bound_to_posterior', mmllhs, model)
       else:
         mmllh, post = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
+        posterior_for_each_model[model]['updated'] = post
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
       if '1D' in model:
         if 'bg' in model:
-          if first_point_into_EM:
-              mus = {context: 0., 'unknown': 0.}
-              Sigmas = {context: Sigma_0_1task_def, 'unknown': Sigma_0_1task_def}
-              data_point_counter_list = {context: 0, 'unknown': 0}
-              posterior = [mus, Sigmas, data_point_counter_list]
-          else:
-            posterior = post
-        else:
-          if first_point_into_EM:
-              normalized_weights = [1.]
-              mus = [[0., 0.]]
-              Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
-              data_point_counter_list = [[0, 0]]
-              posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
-          else:
-            posterior = post
-      else:
-        if 'bg' in model:
-          if first_point_into_EM:
             mus = {context: 0., 'unknown': 0.}
-            Sigmas = {context: Sigma_0_2task_def, 'unknown': Sigma_0_2task_def}
+            Sigmas = {context: Sigma_0_1task_def, 'unknown': Sigma_0_1task_def}
             data_point_counter_list = {context: 0, 'unknown': 0}
             posterior = [mus, Sigmas, data_point_counter_list]
-          else:
-            posterior = post
+            posterior_for_each_model[model]['non_updated'] = posterior
         else:
-          if first_point_into_EM:
             normalized_weights = [1.]
-            mus = [[np.array([0., 0.]), np.array([0., 0.])]]
-            Sigmas = [[Sigma_0_2task_def, Sigma_0_2task_def]]
+            mus = [[0., 0.]]
+            Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
             data_point_counter_list = [[0, 0]]
             posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
-          else:
-            posterior = post
-      fill_learning_dict(learning_dict, T, 'posteriors', posterior, model)
+            posterior_for_each_model[model]['non_updated'] = posterior
+      else:
+        if 'bg' in model:
+          mus = {context: 0., 'unknown': 0.}
+          Sigmas = {context: Sigma_0_2task_def, 'unknown': Sigma_0_2task_def}
+          data_point_counter_list = {context: 0, 'unknown': 0}
+          posterior = [mus, Sigmas, data_point_counter_list]
+          posterior_for_each_model[model]['non_updated'] = posterior
+        else:
+          normalized_weights = [1.]
+          mus = [[np.array([0., 0.]), np.array([0., 0.])]]
+          Sigmas = [[Sigma_0_2task_def, Sigma_0_2task_def]]
+          data_point_counter_list = [[0, 0]]
+          posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
+          posterior_for_each_model[model]['non_updated'] = posterior
   learning_dict, winner_model = who_is_the_winner(model_set, T, learning_dict)
   fill_learning_dict(learning_dict, T, 'alarms', 1, param_is_separate = True)
   fill_learning_dict(learning_dict, T, 'EM_lens', 1, param_is_separate = True)
   fill_learning_dict(learning_dict, T, 'prominent_models', winner_model, param_is_separate = True)
+  for model in model_set:
+    if update_prominent_posterior and model == winner_model:
+      fill_learning_dict(learning_dict, T, 'posteriors', posterior_for_each_model[model]['updated'], model)
+    else:
+      fill_learning_dict(learning_dict, T, 'posteriors', posterior_for_each_model[model]['non_updated'], model)
   return learning_dict      
       
       
@@ -327,7 +326,7 @@ def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_poin
   # if new point is not exciting, nothing happens to the prominent posterior, it stays updated by the newest data point
   return learning_dict, model_change_is_necessary
 
-def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False, first_point_into_EM = True):
+def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False, update_first_prominent_posterior = False):
   T = size_of_data(data)
   data_gen = data_generator(data) # Python generator for iterating through data points 
   learning_dict = init_learning_dict(model_set, D, T)
@@ -338,14 +337,11 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
     print(t)
     if t == 1:  # evaluate all models, the first point wont be built in the post. of any model
       FIRST_CONTEXT = new_data['c'][0]
-      learning_dict = evaluate_all(new_data, learning_dict, sigma_r, model_set, num_particles, first_point_into_EM = first_point_into_EM)
+      learning_dict = evaluate_all(new_data, learning_dict, sigma_r, model_set, num_particles, update_prominent_posterior = update_first_prominent_posterior)
       prominent_model = learning_dict['prominent_models'][0]
       full_gt_data = new_data
-      if first_point_into_EM:
-        EM = deepcopy(new_data)
-        EM_len = 1
-      else:
-        EM_len = 0
+      EM = deepcopy(new_data)
+      EM_len = 1
       print('prominent: ' + prominent_model)
       if verbose:
         pbar.add(1)
@@ -361,7 +357,8 @@ def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr 
         num_points_to_dream = t - EM_len - 1  # new_data is observed
       else:
         data_p_counter_list = learning_dict[prominent_model]['posteriors'][t-1][-1]
-        if t - EM_len - 1:
+        need_for_dream_indicator = t - EM_len - 1
+        if need_for_dream_indicator:
           num_points_to_dream = data_p_counter_list
         else:
           num_points_to_dream = dict()
