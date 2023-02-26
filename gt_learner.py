@@ -1,6 +1,6 @@
 from copy import deepcopy
 import functions_for_2task as f
-from gr_em_learner import who_is_the_winner, data_generator, fill_learning_dict, task_complexity, size_of_data
+from gr_em_learner import who_is_the_winner, data_generator, fill_learning_dict, task_complexity, size
 import numpy as np
 
 def init_learning_dict_GT(model_set, T):
@@ -20,7 +20,7 @@ def init_learning_dict_GT(model_set, T):
   return learning_dict
   
 def GT_learner(data, sigma_r, model_set, num_particles = 256):
-  T = size_of_data(data)
+  T = size(data)
   learning_dict = init_learning_dict_GT(model_set, T)
   for model in model_set:
     data_gen = data_generator(data) # Python generator for iterating through data points 
