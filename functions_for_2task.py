@@ -1054,12 +1054,10 @@ def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     return mmllhs, post_ret, cont_list, pred_prob
   
   elif len(prev_contexts) == 2:
-    print(mmllhs_prev)
     mmllh_previous = mmllhs_prev[prev_contexts[0]] * mmllhs_prev[prev_contexts[1]]
     mus_prev,\
     sigmas_prev,\
     Ts_prev = posterior
-    print(posterior)
     mmllhs = dict()
     mus = dict()
     sigmas = dict()

@@ -29,12 +29,8 @@ def fill_learning_dict(learning_dict, T, param_name, param_value, model = None, 
     learning_dict[param_name][T - 1] = param_value
       
 def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles):
-  '''
-  currently intended for use for one data point, full eval
-  evaluates all models in learning_dict
-  '''
   T = size(data)
-  context = data['c'][0] # LETS ASSUME, WE HAVE 1 DATA POINT
+  context = data['c'][0]
   posterior_for_each_model = dict(zip(model_set, [None] * len(model_set)))
   for model in model_set:
     complexity = task_complexity(model)
@@ -407,7 +403,6 @@ def GR_EM_learner(data, sigma_r, model_set, EM_size_limit_for_eval, num_particle
     t = idx + 1
     if t == 1:
       first_context = new_data['c'][0]
-    print(t)
     if cold_run:
       if not EM_exists:
         EM = deepcopy(new_data)
@@ -477,6 +472,7 @@ def GR_EM_learner(data, sigma_r, model_set, EM_size_limit_for_eval, num_particle
 
 if __name__ == '__main__':
   # Data parameters
+  from gt_learner import GT_learner
   SCHEDULE = 'BLOCKED'  # 'BLOCKED' or 'INTERLEAVED' or 'CUSTOM'
 
   BLOCK_SIZE = 4  # only applies if SCHEDULE is 'CUSTOM'
@@ -488,9 +484,9 @@ if __name__ == '__main__':
   # Agent parameters
   SIGMA_R = 2.0
   PP_THRESHOLD = 1.2
-  D = 10
+  D = 1
   EM_SIZE = 8
-  EM_size_limit_for_eval = 3
+  EM_size_limit_for_eval = 8
   # Generate N_RUNS datasets
   datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
 
@@ -499,6 +495,7 @@ if __name__ == '__main__':
   data = datasets[0]
   result = GR_EM_learner(data, SIGMA_R, model_set, EM_size_limit_for_eval, verbose=False,
                                EM_size_limit=EM_SIZE, pp_thr=PP_THRESHOLD, D=D)
+  result_gt = GT_learner(data, SIGMA_R, model_set)
   a = 1
 
 
