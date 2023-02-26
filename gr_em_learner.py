@@ -1,3 +1,4 @@
+import sys
 import functions_for_2task as f
 import helper_mate as h
 import numpy as np
@@ -11,7 +12,7 @@ Sigma_0_1task_def = 1.
 Sigma_0_2task_def = np.array([[1., 0.],
                               [0., 1.]])
 
-def size_of_data(data):
+def size(data):
   return len(data['z'])
   
 def task_complexity(model):
@@ -27,85 +28,99 @@ def fill_learning_dict(learning_dict, T, param_name, param_value, model = None, 
   else:
     learning_dict[param_name][T - 1] = param_value
       
-def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles, Sigma_0_1task = None, Sigma_0_2task = None, update_prominent_posterior = False):
+def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles):
   '''
   currently intended for use for one data point, full eval
   evaluates all models in learning_dict
   '''
-  if Sigma_0_1task is None:
-    Sigma_0_1task = Sigma_0_1task_def
-  if Sigma_0_2task is None:
-    Sigma_0_2task = Sigma_0_2task_def
-
-  T = size_of_data(data)
+  T = size(data)
   context = data['c'][0] # LETS ASSUME, WE HAVE 1 DATA POINT
   posterior_for_each_model = dict(zip(model_set, [None] * len(model_set)))
   for model in model_set:
-    posterior_for_each_model[model] = {'non_updated': None, 'updated': None}
     complexity = task_complexity(model)
     if complexity == '1_task':
       mmllh, post = f.calc_mmllh_1task(data, sigma_r, model, evaluation = "full")
-      posterior_for_each_model[model]['updated'] = post
+      posterior_for_each_model[model] = post
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
-
-      if model == '1x2D':
-          posterior = ([0, 0], Sigma_0_2task_def)
-      else:
-          posterior = (0, Sigma_0_1task_def)
-      posterior_for_each_model[model]['non_updated'] = posterior
     elif complexity == '2_task':
       if 'bg' in model:
         mmllhs, post, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
-        posterior_for_each_model[model]['updated'] = post
+        posterior_for_each_model[model] = post
         mmllh = 1.
         for context_ in mmllhs:
           mmllh *= mmllhs[context_]
         fill_learning_dict(learning_dict, T, 'contexts', contexts, model)
         fill_learning_dict(learning_dict, T, 'mmllhs', mmllhs, model)
-        fill_learning_dict(learning_dict, T, 'mmllhs_bound_to_posterior', mmllhs, model)
       else:
         mmllh, post = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
-        posterior_for_each_model[model]['updated'] = post
+        posterior_for_each_model[model] = post
       learning_dict[model]['mmllh'][:, T - 1] = mmllh
-      if '1D' in model:
-        if 'bg' in model:
-            mus = {context: 0., 'unknown': 0.}
-            Sigmas = {context: Sigma_0_1task_def, 'unknown': Sigma_0_1task_def}
-            data_point_counter_list = {context: 0, 'unknown': 0}
-            posterior = [mus, Sigmas, data_point_counter_list]
-            posterior_for_each_model[model]['non_updated'] = posterior
-        else:
-            normalized_weights = [1.]
-            mus = [[0., 0.]]
-            Sigmas = [[Sigma_0_1task_def, Sigma_0_1task_def]]
-            data_point_counter_list = [[0, 0]]
-            posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
-            posterior_for_each_model[model]['non_updated'] = posterior
-      else:
-        if 'bg' in model:
-          mus = {context: 0., 'unknown': 0.}
-          Sigmas = {context: Sigma_0_2task_def, 'unknown': Sigma_0_2task_def}
-          data_point_counter_list = {context: 0, 'unknown': 0}
-          posterior = [mus, Sigmas, data_point_counter_list]
-          posterior_for_each_model[model]['non_updated'] = posterior
-        else:
-          normalized_weights = [1.]
-          mus = [[np.array([0., 0.]), np.array([0., 0.])]]
-          Sigmas = [[Sigma_0_2task_def, Sigma_0_2task_def]]
-          data_point_counter_list = [[0, 0]]
-          posterior = [mus, Sigmas, normalized_weights, data_point_counter_list]
-          posterior_for_each_model[model]['non_updated'] = posterior
   learning_dict, winner_model = who_is_the_winner(model_set, T, learning_dict)
-  fill_learning_dict(learning_dict, T, 'alarms', 1, param_is_separate = True)
-  fill_learning_dict(learning_dict, T, 'EM_lens', 1, param_is_separate = True)
   fill_learning_dict(learning_dict, T, 'prominent_models', winner_model, param_is_separate = True)
   for model in model_set:
-    if update_prominent_posterior and model == winner_model:
-      fill_learning_dict(learning_dict, T, 'posteriors', posterior_for_each_model[model]['updated'], model)
+    fill_learning_dict(learning_dict, T, 'posteriors', posterior_for_each_model[model], model)
+  return learning_dict
+
+def find_last_idx_of_eval(a):
+  a = np.array(a)
+  return np.max(np.where(a != None))
+
+def is_surprising(data, learning_dict, sigma_r, pp_thr, t, num_particles):
+  prom_model = learning_dict['prominent_models'][t - 2]
+  last_idx_of_eval = find_last_idx_of_eval(learning_dict[prom_model]['mmllh'])
+  prev_posterior = learning_dict[prom_model]['posteriors'][t - 2]
+  complexity = task_complexity(prom_model)
+  if complexity == '1_task':
+    mmllh_prev = learning_dict[prom_model]['mmllh'][0, t - 2]  # entire column is populated by the same value
+    mmllh, posterior_new, pp = f.calc_mmllh_1task(data, sigma_r, prom_model, evaluation="iterative",
+                                                  posterior=prev_posterior, mmllh_prev=mmllh_prev)
+    if pp < pp_thr:
+      alarm = 1
     else:
-      fill_learning_dict(learning_dict, T, 'posteriors', posterior_for_each_model[model]['non_updated'], model)
-  return learning_dict      
-      
+      alarm = 0
+    learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh
+    # fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
+    fill_learning_dict(learning_dict, t, 'alarms', alarm, param_is_separate=True)
+    return learning_dict, alarm == 1, posterior_new
+  elif complexity == '2_task':
+    if 'bg' in prom_model:
+      prev_contexts = learning_dict[prom_model]['contexts'][t - 2]
+      mmllhs_prev = learning_dict[prom_model]['mmllhs_bound_to_posterior'][t - 2]
+      mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''),
+                                                                       evaluation="iterative",
+                                                                       marginalize=False,
+                                                                       posterior_prev=prev_posterior,
+                                                                       mmllhs_prev=mmllhs_prev,
+                                                                       prev_contexts=prev_contexts)
+      if pp < pp_thr:
+        alarm = 1
+      else:
+        alarm = 0
+      mmllh_acc = 1.
+      for context in mmllhs_new:
+        mmllh_acc *= mmllhs_new[context]
+      learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
+      # fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
+      # fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs_new, prom_model)
+      # fill_learning_dict(learning_dict, t, 'contexts', contexts_new, prom_model)
+      # fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
+      return learning_dict, alarm == 1, posterior_new, contexts_new, mmllhs_new
+    else:
+      mmllh_prev = learning_dict[prom_model]['mmllh'][0, t - 2]
+      mmllh_new, posterior_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model,
+                                                        evaluation="iterative",
+                                                        marginalize=True,
+                                                        posterior_prev=prev_posterior,
+                                                        mmllh_prev=mmllh_prev,
+                                                        num_particles=num_particles)
+      if pp < pp_thr:
+        alarm = 1
+      else:
+        alarm = 0
+      learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_new
+      # new post, etc is filled in by all means and mmllh_test will decide on the need for replacing these values
+      # fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
+      return learning_dict, alarm == 1, posterior_new
       
 def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, Sigma_0_1task = None, Sigma_0_2task = None):
   if Sigma_0_1task is None:
@@ -163,7 +178,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
       learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_new
       # new post, etc is filled in by all means and mmllh_test will decide on the need for replacing these values
       fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
-  fill_learning_dict(learning_dict, t, 'alarms', alarm, param_is_separate = True)
+  # fill_learning_dict(learning_dict, t, 'alarms', alarm, param_is_separate = True)
   return learning_dict, alarm == 1
 
 
@@ -202,6 +217,7 @@ def evaluate_non_prominents(data, learning_dict, sigma_r, dream_idx, model_set, 
   model_change_is_necessary = 'not known'
   if dream_idx == D - 1:
     learning_dict, winner_model = who_is_the_winner(model_set, t, learning_dict)
+    fill_learning_dict(learning_dict, t, 'winning_models', winner_model, param_is_separate=True)
     if prom_model != winner_model:
       model_change_is_necessary = True
     else:
@@ -234,7 +250,7 @@ def who_is_the_winner(model_set, t, learning_dict = None):
 
 
 def data_generator(data):
-    n = size_of_data(data)
+    n = size(data)
     z = data['z']
     r = data['r']
     c = data['c']
@@ -282,6 +298,39 @@ def rewind_quantity_related_to_prominent_model(learning_dict, quantity_to_rewind
   learning_dict[prom_model][quantity_to_rewind][t - 1] = lagged_quantity
 
 
+def semanticise(learning_dict, new_data, num_points_to_dream, prominent_model, D, sigma_r, model_set, num_particles, t, first_context, pp_thr, EM = None):
+  for dream_idx in range(D):
+    if num_points_to_dream:
+      data_dream = h.GR(learning_dict, t, how_many=num_points_to_dream, first_context=first_context)
+    if EM is not None:
+      if num_points_to_dream:
+        data_whole = h.concatenate_data([data_dream, EM, new_data])
+      else:
+        data_whole = h.concatenate_data([EM, new_data])
+    else:
+      data_whole = data_dream
+    learning_dict, model_change_is_necessary = evaluate_non_prominents(data_whole,
+                                            learning_dict,
+                                            sigma_r,
+                                            dream_idx,
+                                            model_set,
+                                            num_particles,
+                                            t,
+                                            D)
+    if model_change_is_necessary:
+      winning_model = learning_dict['winning_models'][t - 1]
+      fill_learning_dict(learning_dict, t, 'winning_models', winning_model, param_is_separate=True)
+      fill_learning_dict(learning_dict, t, 'prominent_models', winning_model, param_is_separate=True)
+    else:
+      # evaluate prominent: t. position, {new_data, EM}
+      data = h.concatenate_data([new_data, EM])
+      learning_dict, _ = evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t,
+                                                                num_particles)
+      fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model, param_is_separate=True)
+      fill_learning_dict(learning_dict, t, 'winning_models', prominent_model, param_is_separate=True)
+  return learning_dict
+
+
 def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_points_to_dream, D, sigma_r, model_set, num_particles, t, first_context, pp_thr, prom_model, EM = None):
   '''
   arranges the various branches in the decision tree (e.g. decides on the need for replacing the posterior of prom model)
@@ -326,86 +375,131 @@ def mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full, num_poin
   # if new point is not exciting, nothing happens to the prominent posterior, it stays updated by the newest data point
   return learning_dict, model_change_is_necessary
 
-def GR_EM_learner(data, sigma_r, model_set, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False, update_first_prominent_posterior = False):
-  T = size_of_data(data)
-  data_gen = data_generator(data) # Python generator for iterating through data points 
+def pass_along_previous_prominent_data(learning_dict, t, prominent_model):
+  prev_prom_post = learning_dict[prominent_model]['posteriors'][t - 2]
+  fill_learning_dict(learning_dict, t, 'posteriors', prev_prom_post, prominent_model)
+  if 'bg' in prominent_model:
+    mmllhs_prev = learning_dict[prominent_model]['mmllhs'][t - 2]
+    contexts_prev = learning_dict[prominent_model]['contexts'][t - 2]
+    fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_prev, prominent_model)
+    fill_learning_dict(learning_dict, t, 'contexts', contexts_prev, prominent_model)
+
+def update_current_prominent_model(learning_dict, t, prominent_model, updated_data):
+  if 'bg' in prominent_model:
+    updated_prominent_posterior, mmllhs_new, contexts_new = updated_data
+    fill_learning_dict(learning_dict, t, 'posteriors', updated_prominent_posterior, prominent_model)
+    fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prominent_model)
+    fill_learning_dict(learning_dict, t, 'contexts', contexts_new, prominent_model)
+  else:
+    updated_prominent_posterior = updated_data
+    fill_learning_dict(learning_dict, t, 'posteriors', updated_prominent_posterior, prominent_model)
+
+def GR_EM_learner(data, sigma_r, model_set, EM_size_limit_for_eval, num_particles = 256, D = 10, pp_thr = .2, EM_size_limit = 0, verbose = False):
+  assert EM_size_limit_for_eval <= EM_size_limit, "EM_size_limit_for_eval must be less than or equal to EM_size_limit"
+  T = size(data)
+  data_gen = data_generator(data)
   learning_dict = init_learning_dict(model_set, D, T)
   if verbose:
     pbar = tf.keras.utils.Progbar(T)
+  cold_run = True
+  EM_exists = False
   for idx, new_data in enumerate(data_gen):
     t = idx + 1
+    if t == 1:
+      first_context = new_data['c'][0]
     print(t)
-    if t == 1:  # evaluate all models, the first point wont be built in the post. of any model
-      FIRST_CONTEXT = new_data['c'][0]
-      learning_dict = evaluate_all(new_data, learning_dict, sigma_r, model_set, num_particles, update_prominent_posterior = update_first_prominent_posterior)
-      prominent_model = learning_dict['prominent_models'][0]
-      full_gt_data = new_data
-      EM = deepcopy(new_data)
-      EM_len = 1
-      print('prominent: ' + prominent_model)
-      if verbose:
-        pbar.add(1)
+    if cold_run:
+      if not EM_exists:
+        EM = deepcopy(new_data)
+        EM_exists = True
+      else:
+        EM = h.concatenate_data([EM, new_data])
+      EM_len = size(EM)
+      fill_learning_dict(learning_dict, t, 'alarms', 1, param_is_separate=True)
+      fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
+      if EM_len == EM_size_limit_for_eval:
+        cold_run = False
+        learning_dict = evaluate_all(EM, learning_dict, sigma_r, model_set, num_particles)
+        prominent_model = learning_dict['prominent_models'][t - 1]
+        fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model, param_is_separate=True)
     else:
       EM_full = (EM_len == EM_size_limit)
       EM_exists_and_not_full = (EM_len < EM_size_limit and EM_len > 0)
       EM_exists = EM_exists_and_not_full or EM_full
-      prominent_model_prev = prominent_model
-      learning_dict, new_point_is_exciting = evaluate_prominent(new_data, learning_dict, sigma_r, pp_thr, t, num_particles)
-      full_gt_data = h.concatenate_data((full_gt_data, new_data))
-      contexts = full_gt_data['c']
-      if 'bg' not in prominent_model:
-        num_points_to_dream = t - EM_len - 1  # new_data is observed
+      EM_is_big_enough_to_eval = (EM_len == EM_size_limit_for_eval)
+      # SURPRISINGNESS
+      if 'bg' in prominent_model:
+        learning_dict, new_point_is_surprising, updated_prominent_posterior, contexts_new, mmllhs_new = \
+          is_surprising(new_data, learning_dict, sigma_r, pp_thr, t, num_particles)
       else:
-        data_p_counter_list = learning_dict[prominent_model]['posteriors'][t-1][-1]
-        need_for_dream_indicator = t - EM_len - 1
-        if need_for_dream_indicator:
-          num_points_to_dream = data_p_counter_list
-        else:
-          num_points_to_dream = dict()
-      # the various branches differ from each other regarding what happens to EM essentially
-      # mmllh_test under the hood takes care of dealing with prominent model in the appropriate way
-      print('*****')
-      print(num_points_to_dream)
-      print('*****')
-      if EM_exists:
-        learning_dict, model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
-                                               num_points_to_dream, D, sigma_r,
-                                               model_set, num_particles, t, FIRST_CONTEXT, pp_thr, prominent_model, EM=EM)
-      else:
-        learning_dict, model_change_is_necessary = mmllh_test(learning_dict, new_data, new_point_is_exciting, EM_full,
-                                               num_points_to_dream, D, sigma_r,
-                                               model_set, num_particles, t, FIRST_CONTEXT, pp_thr, prominent_model)
-      if new_point_is_exciting:
-        if EM_full:                                   # EM is cleared on this branch
-          EM_len = 0
-        elif EM_exists_and_not_full:                  # EM is augmented on this branch
-          EM = h.concatenate_data([EM, new_data])
-          EM_len = size_of_data(EM)
-        else:                                         # EM is born on this branch
-          EM = deepcopy(new_data)
-          EM_len = 1
-      else:                                           # EM remains the same on this branch
-        pass
+        learning_dict, new_point_is_surprising, updated_prominent_posterior = \
+          is_surprising(new_data, learning_dict, sigma_r, pp_thr, t, num_particles)
 
-      fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
-      if len(np.unique(contexts)) == 1:
-        model_change_is_necessary = False
-        fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model_prev, param_is_separate = True)
-      else:
-        update_prominent_model(learning_dict, t, new_point_is_exciting, EM_full, model_change_is_necessary)
-      prominent_model = learning_dict['prominent_models'][t-1]
-      print('prominent: ' + prominent_model)
-      # if new_point_is_exciting and model_change_is_necessary:  # EM is cleared
-        # EM_len = 0
-      print('------')
-      print(EM_len)
-      print('------')
-      if verbose:
-        pbar.add(1)
+      if new_point_is_surprising:
+        if EM_full or EM_is_big_enough_to_eval:
+          # how many points should be dreamed?
+          if 'bg' not in prominent_model:
+            num_points_to_dream = t - EM_len - 1
+          else:
+            data_p_counter_list = learning_dict[prominent_model]['posteriors'][t - 2][-1]
+            need_for_dream_indicator = t - EM_len - 1
+            if need_for_dream_indicator:
+              num_points_to_dream = data_p_counter_list
+            else:
+              num_points_to_dream = dict()
+          learning_dict = semanticise(learning_dict, new_data, num_points_to_dream, prominent_model, D, sigma_r,
+                      model_set, num_particles, t, first_context, pp_thr, EM=EM)
+          EM_len = 0
+          fill_learning_dict(learning_dict, t, 'alarms', 1, param_is_separate=True)
+          fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
+        else:  # prom doesnt change
+          if EM_exists:
+            EM = h.concatenate_data([EM, new_data])
+          else:
+            EM = deepcopy(new_data)
+          EM_len = size(EM)
+          pass_along_previous_prominent_data(learning_dict, t, prominent_model)
+          fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model, param_is_separate=True)
+          fill_learning_dict(learning_dict, t, 'alarms', 1, param_is_separate=True)
+          fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
+      else:  # update current prominent, prom model doesnt change
+        if 'bg' in prominent_model:
+          updated_data = updated_prominent_posterior, mmllhs_new, contexts_new
+        else:
+          updated_data = updated_prominent_posterior
+        EM_len = size(EM)
+        update_current_prominent_model(learning_dict, t, prominent_model, updated_data)
+        fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model, param_is_separate=True)
+        fill_learning_dict(learning_dict, t, 'alarms', 0, param_is_separate=True)
+        fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
+      prominent_model = learning_dict['prominent_models'][t - 1]
   return learning_dict
 
+if __name__ == '__main__':
+  # Data parameters
+  SCHEDULE = 'BLOCKED'  # 'BLOCKED' or 'INTERLEAVED' or 'CUSTOM'
 
+  BLOCK_SIZE = 4  # only applies if SCHEDULE is 'CUSTOM'
+  N_BATCHES = 1  # only applies if SCHEDULE is 'CUSTOM'
+  T = N_BATCHES * 2 * BLOCK_SIZE  # only applies if SCHEDULE is 'BLOCKED' or 'INTERLEAVED
+  ALPHA_LIST = [0, 90]
+  N_RUNS = 20
 
+  # Agent parameters
+  SIGMA_R = 2.0
+  PP_THRESHOLD = 1.2
+  D = 10
+  EM_SIZE = 8
+  EM_size_limit_for_eval = 3
+  # Generate N_RUNS datasets
+  datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
+
+  # Define models to be tested
+  model_set = ['x', 'y', '1x2D', '2x1D_bg']
+  data = datasets[0]
+  result = GR_EM_learner(data, SIGMA_R, model_set, EM_size_limit_for_eval, verbose=False,
+                               EM_size_limit=EM_SIZE, pp_thr=PP_THRESHOLD, D=D)
+  a = 1
 
 
 

@@ -1374,7 +1374,7 @@ def GR(learning_dict, t, how_many = None, first_context = None):
   (in case of model 2x1D and 2x2D parameter how_many is not needed bc of the dreaming method)
   '''
   model = learning_dict['prominent_models'][t-2]
-  posterior = learning_dict[model]['posteriors'][t-1]
+  posterior = learning_dict[model]['posteriors'][t-2]
   if model == 'x' or model == 'y' or model == '1x2D':
     mu, Sigma = posterior
   elif model == "2x1D" or model == "2x2D":
