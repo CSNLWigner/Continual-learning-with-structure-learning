@@ -1485,20 +1485,22 @@ def GR(learning_dict, t, how_many = None, first_context = None):
     return data_dream
   elif model == '2x2D_bg':
     contexts = list(how_many.keys())
-    Tx = how_many[contexts[0]]
-    Ty = how_many[contexts[1]]
-    # dreaming from task1
-    post_x = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[contexts[0]]), covariance_matrix=np.float64(Sigmas[contexts[0]]))
-    gammax = np.array(post_x.sample(Tx))
-    #angles_x = infer_angles_from_gammas(gammax)
-    # dreaming from task2
-    post_y = tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[contexts[1]]), covariance_matrix=np.float64(Sigmas[contexts[1]]))
-    gammay = np.array(post_y.sample(Ty))
-    #angles_y = infer_angles_from_gammas(gammay)
+    Tx = how_many.get(contexts[0])
+    Ty = how_many.get(contexts[1])
     if Tx:
+        post_x = tfd.MultivariateNormalFullCovariance(loc=np.float64(mus[contexts[0]]),
+                                                      covariance_matrix=np.float64(Sigmas[contexts[0]]))
+        gammax = np.array(post_x.sample(Tx))
         data_dream_x = generate_data_from_gammas(gammax, Tx, [contexts[0]] * Tx)
+    else:
+        data_dream_x = {'z':None, 'r':None, 'c':None}
     if Ty:
+        post_y = tfd.MultivariateNormalFullCovariance(loc=np.float64(mus[contexts[1]]),
+                                                      covariance_matrix=np.float64(Sigmas[contexts[1]]))
+        gammay = np.array(post_y.sample(Ty))
         data_dream_y = generate_data_from_gammas(gammay, Ty, [contexts[1]] * Ty)
+    else:
+        data_dream_y = {'z': None, 'r': None, 'c': None}
     data_dream = concatenate_data([data_dream_x, data_dream_y])
 
     return data_dream
