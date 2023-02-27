@@ -81,7 +81,7 @@ def is_surprising(data, learning_dict, sigma_r, pp_thr, t, num_particles):
   elif complexity == '2_task':
     if 'bg' in prom_model:
       prev_contexts = learning_dict[prom_model]['contexts'][t - 2]
-      mmllhs_prev = learning_dict[prom_model]['mmllhs_bound_to_posterior'][t - 2]
+      mmllhs_prev = learning_dict[prom_model]['mmllhs'][t - 2]
       mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''),
                                                                        evaluation="iterative",
                                                                        marginalize=False,
@@ -139,7 +139,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
   elif complexity == '2_task':
     if 'bg' in prom_model:
       prev_contexts = learning_dict[prom_model]['contexts'][t - 2]
-      mmllhs_prev = learning_dict[prom_model]['mmllhs_bound_to_posterior'][t - 2]
+      mmllhs_prev = learning_dict[prom_model]['mmllhs'][t - 2]
       mmllhs_new, posterior_new, contexts_new, pp = f.calc_mmllh_2task(data, sigma_r, prom_model.replace('_bg', ''),
                       evaluation = "iterative",
                       marginalize = False,
@@ -156,7 +156,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
       learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
       # new post, etc is filled in by all means and mmllh_test will decide on the need for replacing these values
       fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
-      fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs_new, prom_model)
+      # fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs_new, prom_model)
       fill_learning_dict(learning_dict, t, 'contexts', contexts_new, prom_model)
       fill_learning_dict(learning_dict, t, 'posteriors', posterior_new, prom_model)
     else:
@@ -203,7 +203,7 @@ def evaluate_non_prominents(data, learning_dict, sigma_r, dream_idx, model_set, 
         if dream_idx == D - 1:  # last dream is retained
           fill_learning_dict(learning_dict, t, 'contexts', contexts, model)
           fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs, model)
-          fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs, model)
+          # fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs, model)
       else:
         mmllh, posterior = f.calc_mmllh_2task(data, sigma_r, model, num_particles = num_particles, evaluation = "full")
       learning_dict[model]['mmllh'][dream_idx, t - 1] = mmllh
@@ -255,14 +255,14 @@ def data_generator(data):
 
 def init_learning_dict(model_set, D, T):
   learning_dict = dict()
-  model_props = ['mmllh', 'posteriors', 'contexts', 'mmllhs', 'mmllhs_bound_to_posterior']
+  model_props = ['mmllh', 'posteriors', 'contexts', 'mmllhs']
   separate_props = ['prominent_models', 'winning_models', 'alarms', 'EM_lens']
   for model in model_set:
     model_props_copy = deepcopy(model_props)
     if 'bg' not in model and 'contexts' in model_props_copy:
       model_props_copy.remove('contexts')
       model_props_copy.remove('mmllhs')
-      model_props_copy.remove('mmllhs_bound_to_posterior')
+      #model_props_copy.remove('mmllhs_bound_to_posterior')
     learning_dict[model] = dict()
     for prop in model_props_copy:
       if prop == "mmllh":
@@ -483,10 +483,10 @@ if __name__ == '__main__':
 
   # Agent parameters
   SIGMA_R = 2.0
-  PP_THRESHOLD = 1.2
+  PP_THRESHOLD = 100.2
   D = 1
-  EM_SIZE = 8
-  EM_size_limit_for_eval = 8
+  EM_SIZE = 1
+  EM_size_limit_for_eval = 1
   # Generate N_RUNS datasets
   datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
 
@@ -495,7 +495,7 @@ if __name__ == '__main__':
   data = datasets[0]
   result = GR_EM_learner(data, SIGMA_R, model_set, EM_size_limit_for_eval, verbose=False,
                                EM_size_limit=EM_SIZE, pp_thr=PP_THRESHOLD, D=D)
-  result_gt = GT_learner(data, SIGMA_R, model_set)
+  # result_gt = GT_learner(data, SIGMA_R, model_set)
   a = 1
 
 
