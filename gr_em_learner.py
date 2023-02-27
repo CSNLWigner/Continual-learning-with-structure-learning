@@ -478,11 +478,11 @@ if __name__ == '__main__':
   BLOCK_SIZE = 4  # only applies if SCHEDULE is 'CUSTOM'
   N_BATCHES = 1  # only applies if SCHEDULE is 'CUSTOM'
   T = N_BATCHES * 2 * BLOCK_SIZE  # only applies if SCHEDULE is 'BLOCKED' or 'INTERLEAVED
-  ALPHA_LIST = [0, 90]
-  N_RUNS = 20
+  ALPHA_LIST = [45, -45]
+  N_RUNS = 1
 
   # Agent parameters
-  SIGMA_R = 2.0
+  SIGMA_R = .3
   PP_THRESHOLD = 100.2
   D = 1
   EM_SIZE = 1
@@ -491,7 +491,7 @@ if __name__ == '__main__':
   datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
 
   # Define models to be tested
-  model_set = ['x', 'y', '1x2D', '2x1D_bg']
+  model_set = ['x', 'y', '1x2D', '2x2D_bg']
   data = datasets[0]
   result = GR_EM_learner(data, SIGMA_R, model_set, EM_size_limit_for_eval, verbose=False,
                                EM_size_limit=EM_SIZE, pp_thr=PP_THRESHOLD, D=D)
