@@ -546,6 +546,7 @@ def mmllh_2x2D_with_background(data, sigma_r, Sigma_0):
   r = np.array(data['r'])
   c = data['c']
   distinct_c = np.unique(c)
+
   assert len(distinct_c) <= 2, "function mmllh_2x2D_with_background(): number of different contexts should be at most 2"
   x_indices = np.where(np.array(c) == distinct_c[0])[0]
   T = z.shape[0]

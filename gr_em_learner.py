@@ -415,8 +415,10 @@ def GR_EM_learner(data, sigma_r, model_set, EM_size_limit_for_eval, num_particle
       if EM_len == EM_size_limit_for_eval:
         cold_run = False
         learning_dict = evaluate_all(EM, learning_dict, sigma_r, model_set, num_particles)
+        EM_len = 0
         prominent_model = learning_dict['prominent_models'][t - 1]
         fill_learning_dict(learning_dict, t, 'prominent_models', prominent_model, param_is_separate=True)
+
     else:
       EM_full = (EM_len == EM_size_limit)
       EM_exists_and_not_full = (EM_len < EM_size_limit and EM_len > 0)
@@ -468,6 +470,7 @@ def GR_EM_learner(data, sigma_r, model_set, EM_size_limit_for_eval, num_particle
         fill_learning_dict(learning_dict, t, 'alarms', 0, param_is_separate=True)
         fill_learning_dict(learning_dict, t, 'EM_lens', EM_len, param_is_separate=True)
       prominent_model = learning_dict['prominent_models'][t - 1]
+
   return learning_dict
 
 if __name__ == '__main__':
@@ -484,9 +487,9 @@ if __name__ == '__main__':
   # Agent parameters
   SIGMA_R = .3
   PP_THRESHOLD = 100.2
-  D = 1
-  EM_SIZE = 1
-  EM_size_limit_for_eval = 1
+  D = 5
+  EM_SIZE = 4
+  EM_size_limit_for_eval = 4
   # Generate N_RUNS datasets
   datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
 
