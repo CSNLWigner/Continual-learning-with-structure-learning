@@ -1,4 +1,5 @@
 import helper_mate
+from helper_mate import size
 import numpy as np
 import tensorflow as tf
 from copy import deepcopy
@@ -593,47 +594,95 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   z = data['z']
   r = np.array(data['r'])
   c = data['c']
-  x_indices = np.where(np.array(c) == '90')[0]
-  T = z.shape[0]
-  
-  indices = np.arange(T)
-  complementer_subset = [item for item in indices if item not in x_indices]
+  A_indices = np.where(np.array(c) == 'A')[0]
+  B_indices = np.where(np.array(c) == 'B')[0]
+  conts = []
+  mmllhs = {}
+  mus = {}
+  sigmas = {}
+  Ts = {}
+  if A_indices:
+      conts.append('A')
+      mmllhs['A'] = dict()
+      mus['A'] = dict()
+      sigmas['A'] = dict()
+      Ts['A'] = dict()
+  if B_indices:
+      conts.append('B')
+      mmllhs['B'] = dict()
+      mus['B'] = dict()
+      sigmas['B'] = dict()
+      Ts['B'] = dict()
+  for A_interpret, B_interpret in (('x', 'y'), ('y', 'x')):
+      if A_indices:
+        zA = z[A_indices]
+        rA = r[A_indices]
+        TA = zA.shape[0]
+        dataA = {'z': zA, 'r': rA}
+        mmllh_A, mu_A, sigma_A = model_marginal_llh_analytic_posterior_aswell(dataA, sigma_r, Sigma_0 = Sigma_0, model = A_interpret)
+        mmllhs['A'][A_interpret] = mmllh_A
+        mus['A'][A_interpret] = mu_A
+        sigmas['A'][A_interpret] = sigma_A
+        Ts['A'][A_interpret] = TA
+      if B_indices:
+        zB = z[B_indices]
+        rB = r[B_indices]
+        dataB = {'z': zB, 'r': rB}
+        TB = zB.shape[0]
+        mmllh_B, mu_B, sigma_B = model_marginal_llh_analytic_posterior_aswell(dataB, sigma_r, Sigma_0 = Sigma_0, model = B_interpret)
+        mmllhs['B'][B_interpret] = mmllh_B
+        mus['B'][B_interpret] = mu_B
+        sigmas['B'][B_interpret] = sigma_B
+        Ts['B'][B_interpret] = TB
 
-  if len(x_indices) > 0:
-    zx = z[x_indices]
-    rx = r[x_indices]
-    Tx = zx.shape[0]
-    cx = '90'
-    datax = {'z': zx, 'r': rx}
-    mmllh_x, mu_x, sigma_x = model_marginal_llh_analytic_posterior_aswell(datax, sigma_r, Sigma_0 = Sigma_0, model = 'x')
-  else:
-    mmllh_x = 1.
-    mu_x = 0.
-    sigma_x = 1.
-    cx = 'unknown'
-    Tx = 0
-  if len(complementer_subset) > 0:
-    cy = '0'
-    zy = z[complementer_subset]
-    ry = r[complementer_subset]
-    datay = {'z': zy, 'r': ry}
-    Ty = zy.shape[0]
-    mmllh_y, mu_y, sigma_y = model_marginal_llh_analytic_posterior_aswell(datay, sigma_r, Sigma_0 = Sigma_0, model = 'y')
-  else:
-    cy = 'unknown'
-    Ty = 0
-    mmllh_y = 1.
-    mu_y = 0.
-    sigma_y = 1.
-  conts = [cx, cy]
-  if 'unknown' in conts:
-    conts.remove('unknown')
-  mmllhs = {f'{cx}': mmllh_x, f'{cy}': mmllh_y}
-  mus = {f'{cx}': mu_x, f'{cy}': mu_y}
-  sigmas = {f'{cx}': sigma_x, f'{cy}': sigma_y}
-  Ts = {f'{cx}': Tx, f'{cy}': Ty}
   return mmllhs, mus, sigmas, Ts, conts
 
+def calculate_mean_mmllh_2x1D_bg(mmllhs: dict):
+    values_per_context = []
+    for context, interprets in mmllhs.items():
+        values = []
+        for interp, value in interprets.items():
+           values.append(value)
+        values_per_context.append(values)
+    if len(values_per_context) == 1:
+        return np.mean(values_per_context)
+    else:
+        mmllh_acc = 0.
+        term_counter = 0
+        for i in values_per_context[0]:
+            for j in values_per_context[1]:
+                mmllh_acc += i * j
+                term_counter += 1
+        return mmllh_acc / term_counter
+def mmllh_2x1D_bg_from_posterior(posterior: dict, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0):
+    mmllhs = deepcopy(mmllhs_prev)
+    contexts_in_posterior = list(posterior.keys())
+    separated_data = separate_data_based_on_context(data)
+    mus, sigmas, Ts = posterior
+    for context_in_data, data_subset in separated_data.items():
+        T_new = size(data_subset)
+        if context_in_data in contexts_in_posterior:
+            for interpret in ('x', 'y'):
+                post_prev = (mus[context_in_data][interpret], sigmas[context_in_data][interpret])
+                mmllh_prev = mmllhs_prev[context_in_data][interpret]
+                mmllh_new, (mu_new, sigma_new), _ = calc_mmllh_1task(data_subset, sigma_r, model=interpret, Sigma_0=Sigma_0,
+                                                         evaluation="iterative", posterior=post_prev,
+                                                         mmllh_prev=mmllh_prev)
+                for obj, val in zip([mus, mmllhs, sigmas], [mu_new, mmllh_new, sigma_new]):
+                    obj[context_in_data][interpret] = val
+                Ts[context_in_data][interpret] += T_new
+        else:
+            for obj in (Ts, mus, mmllhs, sigmas):
+                obj[context_in_data] = dict()
+            for interpret in ('x', 'y'):
+                mmllh_new, (mu_new, sigma_new) = calc_mmllh_1task(data_subset, sigma_r, model=interpret, Sigma_0=Sigma_0,
+                                                      evaluation="full")
+                for obj, val in zip([mus, mmllhs, sigmas, Ts], [mu_new, mmllh_new, sigma_new, T_new]):
+                    obj[context_in_data][interpret] = val
+
+    post_ret = (mus, sigmas, Ts)
+    pred_prob = calculate_mean_mmllh_2x1D_bg(mmllhs) / calculate_mean_mmllh_2x1D_bg(mmllhs_prev)
+    return mmllhs, post_ret, prev_contexts, pred_prob
 
 
 def mmllh_2x2D_PF_from_posterior(posterior, mmllh_prev, data, sigma_r, Sigma_0, N, N2, verbose):
@@ -998,8 +1047,15 @@ def mmllh_2x2D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, si
     pred_prob = mmllh_new / mmllh_previous
     return mmllhs, post_ret, prev_contexts, pred_prob
 
-      
-def mmllh_2x1D_bg_from_posterior(posterior, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0):
+def separate_data_based_on_context(data):
+    contexts_in_data = np.unique(np.array(data['c']))
+    separated_data = dict()
+    for c in contexts_in_data:
+        separated_data[c] = filter_based_on_context(data, c)
+    return separated_data
+
+
+def mmllh_2x1D_bg_from_posterior_old(posterior, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0):
 
   if len(data['z']) == 0:
     return mmllhs_prev, posterior, prev_contexts

@@ -1,6 +1,7 @@
 import sys
 import functions_for_2task as f
 import helper_mate as h
+from helper_mate import size
 import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -12,8 +13,6 @@ Sigma_0_1task_def = 1.
 Sigma_0_2task_def = np.array([[1., 0.],
                               [0., 1.]])
 
-def size(data):
-  return len(data['z'])
   
 def task_complexity(model):
   if model in ['x', 'y', '1x2D']:

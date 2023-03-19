@@ -9,6 +9,9 @@ from copy import deepcopy
 import pandas as pd
 
 
+def size(data):
+  return len(data['z'])
+
 def generate_batch_data_old(task_alphas, batch_size, num_of_batches):
   data1 = generate_data(batch_size, alpha = task_alphas[0])
   data2 = generate_data(batch_size, alpha = task_alphas[1])
@@ -68,6 +71,23 @@ def generate_data(N=100, alpha=0, z_prior_type='normal', sigma_z_prior=1, r_bias
 
     z = np.array(z_prior.sample(N))
     c = [str(alpha)] * N
+    r_noise = tfd.Normal(0, sigma_reward).sample(N)
+    r_mean = tf.reduce_sum(tf.multiply(gamma,z),1) + r_bias
+    r = r_mean + r_noise
+
+    return {'z':z,'r':r, 'c':c}
+
+
+def generate_data_with_bg(N=100, alpha=0, bg='A', z_prior_type='normal', sigma_z_prior=1, r_bias=0, sigma_reward=0.001, sigma_bias=0):
+    gamma = gamma_from_alpha(alpha)
+
+    if z_prior_type == 'normal':
+        z_prior = tfd.MultivariateNormalDiag(loc=[0,0], scale_diag=[sigma_z_prior,sigma_z_prior]);
+    elif z_prior_type == 'uniform':
+        z_prior = tfd.Uniform([-sigma_z_prior,-sigma_z_prior],[sigma_z_prior,sigma_z_prior])
+
+    z = np.array(z_prior.sample(N))
+    c = [bg] * N
     r_noise = tfd.Normal(0, sigma_reward).sample(N)
     r_mean = tf.reduce_sum(tf.multiply(gamma,z),1) + r_bias
     r = r_mean + r_noise
@@ -1387,14 +1407,14 @@ def GR(learning_dict, t, how_many = None, first_context = None):
     gamma = np.array(post.sample(how_many))
     gamma_out = np.zeros((gamma.shape[0], 2))
     gamma_out[:, 1] = gamma
-    data_dream = generate_data_from_gammas(gamma_out, how_many, ['90'] * len(gamma_out))
+    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [first_context])
     return data_dream
   elif model == 'y':
     post = tfd.Normal(loc = mu, scale = Sigma)
     gamma = np.array(post.sample(how_many))
     gamma_out = np.zeros((gamma.shape[0], 2))
     gamma_out[:, 0] = gamma
-    data_dream = generate_data_from_gammas(gamma_out, how_many, ['0'] * len(gamma_out))
+    data_dream = generate_data_from_gammas(gamma_out, how_many, how_many * [first_context])
     return data_dream
   elif model == '1x2D':
     post = tfd.MultivariateNormalFullCovariance(loc = mu, covariance_matrix = Sigma)
