@@ -594,8 +594,8 @@ def mmllh_2x1D_with_background(data, sigma_r, Sigma_0):
   z = data['z']
   r = np.array(data['r'])
   c = data['c']
-  A_indices = np.where(np.array(c) == 'A')[0]
-  B_indices = np.where(np.array(c) == 'B')[0]
+  A_indices = list(np.where(np.array(c) == 'A')[0])
+  B_indices = list(np.where(np.array(c) == 'B')[0])
   conts = []
   mmllhs = {}
   mus = {}
@@ -656,9 +656,9 @@ def calculate_mean_mmllh_2x1D_bg(mmllhs: dict):
         return mmllh_acc / term_counter
 def mmllh_2x1D_bg_from_posterior(posterior: dict, mmllhs_prev, prev_contexts, data, sigma_r, Sigma_0):
     mmllhs = deepcopy(mmllhs_prev)
-    contexts_in_posterior = list(posterior.keys())
     separated_data = separate_data_based_on_context(data)
     mus, sigmas, Ts = posterior
+    contexts_in_posterior = list(mus.keys())
     for context_in_data, data_subset in separated_data.items():
         T_new = size(data_subset)
         if context_in_data in contexts_in_posterior:

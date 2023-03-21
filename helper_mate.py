@@ -1470,7 +1470,7 @@ def GR(learning_dict, t, how_many = None, first_context = None):
     for i in range(len(normalized_weights)):
       components_y.append(tfd.MultivariateNormalFullCovariance(loc = np.float64(mus[i][1]), covariance_matrix=np.float64(Sigmas[i][1])))
     post_y = tfd.Mixture(cat = tfd.Categorical(probs = normalized_weights), components = components_y)
-      
+
     gammay = np.array(post_y.sample(Ty))
     angles_y = infer_angles_from_gammas(gammay)
     data_dream_x = generate_data_from_gammas(gammax, Tx, angles_x)
@@ -1478,30 +1478,57 @@ def GR(learning_dict, t, how_many = None, first_context = None):
     data_dream = concatenate_data([data_dream_x, data_dream_y])
     return data_dream
   elif model == '2x1D_bg':
-    Tx = how_many.get('90')
-    Ty = how_many.get('0')
-    if Tx:
-        # dreaming from x
-        post_x = tfd.Normal(loc = np.float64(mus['90']), scale=np.float64(Sigmas['90']))
-
-        gamma_ = np.array(post_x.sample(Tx))
-        gammax = np.zeros((gamma_.shape[0], 2))
-        gammax[:, 1] = gamma_
-        data_dream_x = generate_data_from_gammas(gammax, Tx, ['90'] * len(gammax))
+    mmllhs = learning_dict[model]['mmllhs'][t-2]
+    contexts = list(mmllhs.keys())
+    if len(contexts) == 1:
+        hypothesis_list = [
+            (contexts[0], 'x'),
+            (contexts[0], 'y'),
+        ]
+        probs = []
+        for hypo in hypothesis_list:
+            probs.append(mmllhs[hypo[0]][hypo[1]])
+        probs = np.array(probs) / sum(probs)
     else:
-        data_dream_x = {'z':None, 'r':None, 'c':None}
-    if Ty:
-        # dreaming from y
-        post_y = tfd.Normal(loc = np.float64(mus['0']), scale=np.float64(Sigmas['0']))
+        hypothesis_list = [('A', 'x', 'B', 'x'),
+                 ('A', 'y', 'B', 'y'),
+                 ('A', 'x', 'B', 'y'),
+                 ('A', 'y', 'B', 'x')]
+        probs = []
+        for hypo in hypothesis_list:
+            probs.append(mmllhs[hypo[0]][hypo[1]] * mmllhs[hypo[2]][hypo[3]])
+        probs = np.array(probs) / sum(probs)
+    bernoulli = tfd.Categorical(probs=probs)
+    chosen_hypothesis = hypothesis_list[bernoulli.sample(1)]
+    first_part = chosen_hypothesis[:2]
+    second_part = chosen_hypothesis[2:]
 
-        gamma_ = np.array(post_y.sample(Ty))
-        gammay = np.zeros((gamma_.shape[0], 2))
-        gammay[:, 0] = gamma_
-        data_dream_y = generate_data_from_gammas(gammay, Ty, ['0'] * len(gammay))
+    first_cont = first_part[0]
+    first_interp = first_part[1]
+    T1 = how_many[first_cont]
+    post_1 = tfd.Normal(loc=np.float64(mus[first_cont]), scale=np.float64(Sigmas[first_cont]))
+    gamma_ = np.array(post_1.sample(T1))
+    gamma1 = np.zeros((gamma_.shape[0], 2))
+    if first_interp == 'x':
+        gamma1[:, 1] = gamma_
+    elif first_interp == 'y':
+        gamma1[:, 0] = gamma_
+    data_dream_1 = generate_data_from_gammas(gamma1, T1, [first_cont] * len(gamma1))
+    if second_part:
+        second_cont = second_part[0]
+        second_interp = second_part[1]
+        T2 = how_many[second_cont]
+        post_2 = tfd.Normal(loc=np.float64(mus[second_cont]), scale=np.float64(Sigmas[second_cont]))
+        gamma_ = np.array(post_2.sample(T2))
+        gamma2 = np.zeros((gamma_.shape[0], 2))
+        if second_interp == 'x':
+            gamma2[:, 1] = gamma_
+        elif second_interp == 'y':
+            gamma2[:, 0] = gamma_
+        data_dream_2 = generate_data_from_gammas(gamma2, T2, [second_cont] * len(gamma2))
     else:
-        data_dream_y = {'z': None, 'r': None, 'c': None}
-
-    data_dream = concatenate_data([data_dream_x, data_dream_y])
+        data_dream_2 = {'z': None, 'r': None, 'c': None}
+    data_dream = concatenate_data([data_dream_1, data_dream_2])
     return data_dream
   elif model == '2x2D_bg':
     contexts = list(how_many.keys())

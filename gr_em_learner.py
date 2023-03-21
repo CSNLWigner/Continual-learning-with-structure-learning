@@ -12,7 +12,7 @@ rcParams['figure.figsize'] = (15, 10)
 Sigma_0_1task_def = 1.
 Sigma_0_2task_def = np.array([[1., 0.],
                               [0., 1.]])
-
+from functions_for_2task import calculate_mean_mmllh_2x1D_bg
   
 def task_complexity(model):
   if model in ['x', 'y', '1x2D']:
@@ -41,9 +41,7 @@ def evaluate_all(data, learning_dict, sigma_r, model_set, num_particles):
       if 'bg' in model:
         mmllhs, post, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
         posterior_for_each_model[model] = post
-        mmllh = 1.
-        for context_ in mmllhs:
-          mmllh *= mmllhs[context_]
+        mmllh = calculate_mean_mmllh_2x1D_bg(mmllhs)
         fill_learning_dict(learning_dict, T, 'contexts', contexts, model)
         fill_learning_dict(learning_dict, T, 'mmllhs', mmllhs, model)
       else:
@@ -91,9 +89,7 @@ def is_surprising(data, learning_dict, sigma_r, pp_thr, t, num_particles):
         alarm = 1
       else:
         alarm = 0
-      mmllh_acc = 1.
-      for context in mmllhs_new:
-        mmllh_acc *= mmllhs_new[context]
+      mmllh_acc = calculate_mean_mmllh_2x1D_bg(mmllhs_new)
       learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
       # fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
       # fill_learning_dict(learning_dict, t, 'mmllhs_bound_to_posterior', mmllhs_new, prom_model)
@@ -149,9 +145,7 @@ def evaluate_prominent(data, learning_dict, sigma_r, pp_thr, t, num_particles, S
         alarm = 1
       else:
         alarm = 0
-      mmllh_acc = 1.
-      for context in mmllhs_new:
-        mmllh_acc *= mmllhs_new[context]
+      mmllh_acc = calculate_mean_mmllh_2x1D_bg(mmllhs_new)
       learning_dict[prom_model]['mmllh'][:, t - 1] = mmllh_acc
       # new post, etc is filled in by all means and mmllh_test will decide on the need for replacing these values
       fill_learning_dict(learning_dict, t, 'mmllhs', mmllhs_new, prom_model)
@@ -195,9 +189,7 @@ def evaluate_non_prominents(data, learning_dict, sigma_r, dream_idx, model_set, 
     elif complexity == '2_task':
       if 'bg' in model:
         mmllhs, posterior, contexts = f.calc_mmllh_2task(data, sigma_r, model.replace('_bg', ''), marginalize = False, evaluation = "full")
-        mmllh_acc = 1.
-        for context in mmllhs:
-          mmllh_acc *= mmllhs[context]
+        mmllh_acc = calculate_mean_mmllh_2x1D_bg(mmllhs)
         mmllh = mmllh_acc
         if dream_idx == D - 1:  # last dream is retained
           fill_learning_dict(learning_dict, t, 'contexts', contexts, model)
@@ -480,7 +472,7 @@ if __name__ == '__main__':
   BLOCK_SIZE = 4  # only applies if SCHEDULE is 'CUSTOM'
   N_BATCHES = 1  # only applies if SCHEDULE is 'CUSTOM'
   T = N_BATCHES * 2 * BLOCK_SIZE  # only applies if SCHEDULE is 'BLOCKED' or 'INTERLEAVED
-  ALPHA_LIST = [45, -45]
+  ALPHA_LIST = [0, 90]
   N_RUNS = 1
 
   # Agent parameters
@@ -490,11 +482,12 @@ if __name__ == '__main__':
   EM_SIZE = 4
   EM_size_limit_for_eval = 4
   # Generate N_RUNS datasets
-  datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
+  #datasets = [h.generate_batch_data(ALPHA_LIST, BLOCK_SIZE, N_BATCHES) for i in range(N_RUNS)]
 
   # Define models to be tested
-  model_set = ['x', 'y', '1x2D', '2x2D_bg']
-  data = datasets[0]
+  model_set = ['x', 'y', '1x2D', '2x1D_bg']
+  #data = datasets[0]
+  data = h.concatenate_data([h.generate_data_with_bg(4, alpha=0, bg='A'), h.generate_data_with_bg(4, alpha=90, bg='B')])
   result = GR_EM_learner(data, SIGMA_R, model_set, EM_size_limit_for_eval, verbose=False,
                                EM_size_limit=EM_SIZE, pp_thr=PP_THRESHOLD, D=D)
   # result_gt = GT_learner(data, SIGMA_R, model_set)
